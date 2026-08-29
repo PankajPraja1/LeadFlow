@@ -3,7 +3,8 @@ node_modules/
 
 # Environment variables
 .env
-.env.local
+.env.*
+!.env.example
 
 # Build output
 dist/
@@ -11,8 +12,10 @@ build/
 
 # Logs
 *.log
+npm-debug.log*
 
-# Editor and operating system
+# Editors and operating systems
 .vscode/
+.idea/
 .DS_Store
 Thumbs.db

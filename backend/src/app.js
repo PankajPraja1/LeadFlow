@@ -9,14 +9,16 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_URL || "http://localhost:5173",
+}));
 app.use(express.json());
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "LeadFlow Pro API is running",
+    message: "LeadFlow API is running",
   });
 });
 
