@@ -12,6 +12,11 @@ LeadFlow is a sales-focused lead management application designed for teams that 
 
 This project is built to showcase a practical full-stack workflow using React on the frontend, Express and MongoDB on the backend, and JWT-based protection for secure access.
 
+## Live Demo
+
+- Application: https://leadflow-hazel-xi.vercel.app
+- API Health: https://leadflow-api-liard.vercel.app/api/health
+
 ## Current Status
 
 This project is in an active MVP stage and is not yet a complete production CRM.
