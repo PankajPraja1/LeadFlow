@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+// Import the connectDB function to establish a connection to MongoDB
+const connectDB = require("./config/db");
 // Import routes
 const authRoutes = require("./routes/authRoutes");
 // Import lead routes
@@ -20,6 +22,22 @@ app.get("/api/health", (req, res) => {
     success: true,
     message: "LeadFlow API is running",
   });
+});
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error(
+      `Database connection error: ${error.message}`
+    );
+
+    res.status(503).json({
+      success: false,
+      message: "Database service is temporarily unavailable",
+    });
+  }
 });
 
 // Use routes
