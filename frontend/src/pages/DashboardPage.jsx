@@ -1,4 +1,4 @@
-import { BarChart3, CheckCircle2, Clock3, LogOut, Pencil, Plus, Search, Target, Trash2, UserPlus, Users, } from "lucide-react";
+import { BarChart3, CheckCircle2, Clock3, Eye, LogOut, Pencil, Plus, Search, Target, Trash2, UserPlus, Users, } from "lucide-react";
 
 import { useEffect, useState } from "react";
 
@@ -393,6 +393,15 @@ function DashboardPage() {
 
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/leads/${lead._id}`)}
+                            title="View lead details"
+                            className="cursor-pointer rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-blue-700"
+                          >
+                            <Eye size={17} />
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => openEditModal(lead)}

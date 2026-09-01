@@ -7,6 +7,7 @@ import { getCurrentUser } from "./features/auth/authSlice";
 import DashboardPage from "./pages/DashboardPage";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
+import LeadDetailsPage from "./pages/LeadDetailsPage";
 
 function App() {
   const dispatch = useDispatch();
@@ -33,7 +34,19 @@ function App() {
 
       <Route
         path="/dashboard"
-        element={<ProtectedRoute> <DashboardPage /> </ProtectedRoute>} />
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>}
+      />
+
+      <Route
+        path="/leads/:leadId"
+        element={
+          <ProtectedRoute>
+            <LeadDetailsPage />
+          </ProtectedRoute>}
+      />
 
       <Route
         path="/"
