@@ -1,23 +1,74 @@
-import { ArrowLeft, CalendarDays, Clock3, Mail, MapPin, Pencil, Phone, Plus, UserRound, } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock3, Mail, MapPin, Pencil, Phone, Plus, RefreshCw, Save, Trash2, UserPlus, UserRound, X, } from "lucide-react";
 
 import { useEffect, useState, } from "react";
-
 import { useDispatch, useSelector, } from "react-redux";
-
 import { useNavigate, useParams, } from "react-router-dom";
-
 import LeadModal from "../components/LeadModal";
+import { deleteLead, updateLead, } from "../features/crm/crmSlice";
+import { clearLeadDetails, createLeadNote, deleteLeadNote, fetchLeadDetails, updateLeadNote, } from "../features/leads/leadDetailsSlice";
 
-import { updateLead, } from "../features/crm/crmSlice";
-
-import { clearLeadDetails, createLeadNote, fetchLeadDetails, } from "../features/leads/leadDetailsSlice";
-
+// Define styles for different lead statuses
 const statusStyles = {
     new: "bg-blue-100 text-blue-700",
     contacted: "bg-amber-100 text-amber-700",
     qualified: "bg-purple-100 text-purple-700",
     converted: "bg-emerald-100 text-emerald-700",
     lost: "bg-red-100 text-red-700",
+};
+
+// Define styles and icons for different activity types in the activity timeline
+const activityStyles = {
+    lead_created: {
+        icon: UserPlus,
+        style: "bg-emerald-100 text-emerald-700",
+    },
+
+    lead_updated: {
+        icon: Pencil,
+        style: "bg-blue-100 text-blue-700",
+    },
+
+    status_changed: {
+        icon: RefreshCw,
+        style: "bg-purple-100 text-purple-700",
+    },
+
+    followup_updated: {
+        icon: CalendarDays,
+        style: "bg-amber-100 text-amber-700",
+    },
+
+    lead_assigned: {
+        icon: UserRound,
+        style: "bg-cyan-100 text-cyan-700",
+    },
+
+    note_added: {
+        icon: Plus,
+        style: "bg-emerald-100 text-emerald-700",
+    },
+
+    note_updated: {
+        icon: Pencil,
+        style: "bg-blue-100 text-blue-700",
+    },
+
+    note_deleted: {
+        icon: Trash2,
+        style: "bg-red-100 text-red-700",
+    },
+};
+
+// Check if the user has permission to modify a note based on their role and the note's author
+const canModifyNote = (user, note) => {
+    const currentUserId = user?._id || user?.id;
+    const authorId = note.author?._id || note.author?.id || note.author;
+    const hasElevatedAccess = [
+        "admin",
+        "leader",
+    ].includes(user?.systemRole);
+
+    return (hasElevatedAccess || authorId?.toString() === currentUserId?.toString());
 };
 
 const formatDate = (date) => {
@@ -59,7 +110,8 @@ function LeadDetailsPage() {
     const { leadId } = useParams();
 
     const [newNote, setNewNote] = useState("");
-
+    const [editingNoteId, setEditingNoteId] = useState(null);
+    const [editingNoteContent, setEditingNoteContent] = useState("");
     const [isEditModalOpen, setIsEditModalOpen,] = useState(false);
 
     const {
@@ -72,6 +124,8 @@ function LeadDetailsPage() {
     } = useSelector((state) => state.leadDetails);
 
     const { isSavingLead, error: crmError, } = useSelector((state) => state.crm);
+
+    const { user } = useSelector((state) => state.auth);
 
     useEffect(() => {
         dispatch(fetchLeadDetails(leadId));
@@ -101,6 +155,63 @@ function LeadDetailsPage() {
         }
     };
 
+    // Start editing an existing note by setting the editing state
+    const startEditingNote = (note) => {
+        setEditingNoteId(note._id);
+        setEditingNoteContent(note.content);
+    };
+
+    // Cancel editing a note by resetting the editing state
+    const cancelEditingNote = () => {
+        setEditingNoteId(null);
+        setEditingNoteContent("");
+    };
+
+    // Handle updating an existing note for the lead
+    const handleUpdateNote = async (event) => {
+        event.preventDefault();
+
+        const content = editingNoteContent.trim();
+
+        if (!content || !editingNoteId) {
+            return;
+        }
+
+        try {
+            await dispatch(updateLeadNote({
+                leadId,
+                noteId: editingNoteId,
+                content,
+            })).unwrap();
+
+            cancelEditingNote();
+        } catch {
+            // Redux displays the API error.
+        }
+    };
+
+    // Handle deleting an existing note for the lead after user confirmation
+    const handleDeleteNote = async (note) => {
+        const shouldDelete = window.confirm("Delete this note?");
+
+        if (!shouldDelete) {
+            return;
+        }
+
+        try {
+            await dispatch(deleteLeadNote({
+                leadId,
+                noteId: note._id,
+            })).unwrap();
+
+            if (editingNoteId === note._id) {
+                cancelEditingNote();
+            }
+        } catch {
+            // Redux displays the API error.
+        }
+    };
+
     // Handle saving updated lead details
     const handleSaveLead = async (leadData) => {
         try {
@@ -112,6 +223,23 @@ function LeadDetailsPage() {
             setIsEditModalOpen(false);
 
             await dispatch(fetchLeadDetails(leadId)).unwrap();
+        } catch {
+            // Redux displays the API error.
+        }
+    };
+
+    // Handle deleting the lead after user confirmation
+    const handleDeleteLead = async () => {
+        const shouldDelete = window.confirm(`Delete the lead "${lead.name}"?`);
+
+        if (!shouldDelete) {
+            return;
+        }
+
+        try {
+            await dispatch(deleteLead(leadId)).unwrap();
+
+            navigate("/dashboard");
         } catch {
             // Redux displays the API error.
         }
@@ -197,12 +325,21 @@ function LeadDetailsPage() {
                         </p>
                     </div>
 
-                    <button type="button" onClick={() => setIsEditModalOpen(true)}
-                        className="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
-                    >
-                        <Pencil size={17} />
-                        Edit lead
-                    </button>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <button type="button" onClick={handleDeleteLead} disabled={isSavingLead}
+                            className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <Trash2 size={17} />
+                            Delete lead
+                        </button>
+
+                        <button type="button" onClick={() => setIsEditModalOpen(true)} disabled={isSavingLead}
+                            className="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <Pencil size={17} />
+                            Edit lead
+                        </button>
+                    </div>
                 </section>
 
                 <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_1.25fr]">
@@ -314,21 +451,9 @@ function LeadDetailsPage() {
                                 </p>
                             </div>
 
-                            <form
-                                onSubmit={handleAddNote}
-                                className="mt-5"
-                            >
-                                <textarea
-                                    value={newNote}
-                                    onChange={(event) =>
-                                        setNewNote(
-                                            event.target.value
-                                        )
-                                    }
-                                    maxLength="2000"
-                                    rows="4"
-                                    placeholder="Write a note about this lead..."
-                                    className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            <form onSubmit={handleAddNote} className="mt-5">
+                                <textarea value={newNote} onChange={(event) => setNewNote(event.target.value)}
+                                    maxLength="2000" rows="4" placeholder="Write a note about this lead..." className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                 />
 
                                 <div className="mt-3 flex items-center justify-between gap-4">
@@ -336,19 +461,12 @@ function LeadDetailsPage() {
                                         {newNote.length}/2000
                                     </p>
 
-                                    <button
-                                        type="submit"
-                                        disabled={
-                                            isNoteSaving ||
-                                            !newNote.trim()
-                                        }
+                                    <button type="submit" disabled={isNoteSaving || !newNote.trim()}
                                         className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         <Plus size={17} />
 
-                                        {isNoteSaving
-                                            ? "Adding..."
-                                            : "Add note"}
+                                        {isNoteSaving ? "Adding..." : "Add note"}
                                     </button>
                                 </div>
                             </form>
@@ -359,38 +477,79 @@ function LeadDetailsPage() {
                                         No interaction notes yet.
                                     </p>
                                 ) : (
-                                    notes.map((note) => (
-                                        <article
-                                            key={note._id}
-                                            className="rounded-lg border border-slate-200 p-4"
-                                        >
-                                            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                                                {note.content}
-                                            </p>
+                                    notes.map((note) => {
+                                        const isEditing = editingNoteId === note._id;
 
-                                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                                                <span className="font-medium text-slate-500">
-                                                    {note.author?.name ||
-                                                        "Unknown user"}
-                                                </span>
+                                        const userCanModify = canModifyNote(user, note);
 
-                                                <span>•</span>
+                                        return (
+                                            <article key={note._id} className="rounded-lg border border-slate-200 p-4" >
+                                                {isEditing ? (
+                                                    <form onSubmit={handleUpdateNote} >
+                                                        <textarea value={editingNoteContent} onChange={(event) =>
+                                                            setEditingNoteContent(event.target.value)
+                                                        } maxLength="2000" rows="4" className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
 
-                                                <span>
-                                                    {formatDateTime(
-                                                        note.createdAt
-                                                    )}
-                                                </span>
+                                                        <div className="mt-3 flex justify-end gap-2">
+                                                            <button type="button" onClick={cancelEditingNote} disabled={isNoteSaving} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60" >
+                                                                <X size={16} />
+                                                                Cancel
+                                                            </button>
 
-                                                {note.editedAt && (
+                                                            <button type="submit" disabled={isNoteSaving || !editingNoteContent.trim()} className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60" >
+                                                                <Save size={16} />
+
+                                                                {isNoteSaving ? "Saving..." : "Save"}
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                ) : (
                                                     <>
-                                                        <span>•</span>
-                                                        <span>Edited</span>
+                                                        <div className="flex items-start justify-between gap-4">
+                                                            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                                                                {note.content}
+                                                            </p>
+
+                                                            {userCanModify && (
+                                                                <div className="flex shrink-0 gap-1">
+                                                                    <button type="button" onClick={() => startEditingNote(note)} disabled={isNoteSaving} title="Edit note"
+                                                                        className="cursor-pointer rounded-lg p-2 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    >
+                                                                        <Pencil size={15} />
+                                                                    </button>
+
+                                                                    <button type="button" onClick={() => handleDeleteNote(note)} disabled={isNoteSaving} title="Delete note"
+                                                                        className="cursor-pointer rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    >
+                                                                        <Trash2 size={15} />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                                                            <span className="font-medium text-slate-500">
+                                                                {note.author?.name || "Unknown user"}
+                                                            </span>
+
+                                                            <span>•</span>
+
+                                                            <span>
+                                                                {formatDateTime(note.createdAt)}
+                                                            </span>
+
+                                                            {note.editedAt && (
+                                                                <>
+                                                                    <span>•</span>
+                                                                    <span>Edited</span>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </>
                                                 )}
-                                            </div>
-                                        </article>
-                                    ))
+                                            </article>
+                                        );
+                                    })
                                 )}
                             </div>
                         </section>
@@ -414,32 +573,41 @@ function LeadDetailsPage() {
                                 </p>
                             ) : (
                                 <div className="space-y-0">
-                                    {activities.map((activity, index) => (
-                                        <article key={activity._id} className="relative flex gap-4 pb-7" >
-                                            {index !== activities.length - 1 && (
-                                                <div className="absolute left-[17px] top-9 h-[calc(100%-20px)] w-px bg-slate-200" />
-                                            )}
+                                    {
+                                        activities.map((activity, index) => {
+                                            const config = activityStyles[activity.type] || {
+                                                icon: Clock3,
+                                                style: "bg-slate-100 text-slate-600",
+                                            };
 
-                                            <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-                                                <Clock3 size={17} />
-                                            </div>
+                                            const ActivityIcon = config.icon;
 
-                                            <div className="pt-0.5">
-                                                <p className="text-sm font-medium text-slate-700">
-                                                    {
-                                                        activity.description
-                                                    }
-                                                </p>
+                                            return (
+                                                <article key={activity._id} className="relative flex gap-4 pb-7" >
+                                                    {index !== activities.length - 1 && (
+                                                        <div className="absolute left-[17px] top-9 h-[calc(100%-20px)] w-px bg-slate-200" />
+                                                    )}
 
-                                                <p className="mt-1 text-xs text-slate-400">
-                                                    {activity.performedBy?.name || "Unknown user"}
-                                                    {" • "}
-                                                    {formatDateTime(activity.createdAt)}
-                                                </p>
-                                            </div>
-                                        </article>
-                                    )
-                                    )}
+                                                    <div className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${config.style}`} >
+                                                        <ActivityIcon size={17} />
+                                                    </div>
+
+                                                    <div className="pt-0.5">
+                                                        <p className="text-sm font-medium text-slate-700">
+                                                            {activity.description}
+                                                        </p>
+
+                                                        <p className="mt-1 text-xs text-slate-400">
+                                                            {activity.performedBy?.name || "Unknown user"}
+                                                            {" • "}
+                                                            {formatDateTime(activity.createdAt)}
+                                                        </p>
+                                                    </div>
+                                                </article>
+                                            );
+                                        }
+                                        )
+                                    }
                                 </div>
                             )}
                         </div>
