@@ -1,67 +1,66 @@
 <div align="center">
   <img src="frontend/public/leadflow-logo-white-bg.svg" alt="LeadFlow logo" width="90" />
   <h1>LeadFlow</h1>
-  <p>
-    A full-stack, role-based CRM dashboard for managing leads, follow-ups, and sales pipeline visibility.
-  </p>
+  <p>A deployed, full-stack CRM for secure lead management, follow-ups, interaction notes, pipeline analytics, and activity tracking.</p>
 </div>
 
 ## Overview
 
-LeadFlow is a sales-focused lead management application designed for teams that want a cleaner, structured way to track leads and monitor conversion performance. The current build is an early MVP focused on the dashboard and core workflow: authentication, lead CRUD, status tracking, and pipeline insights.
+LeadFlow is a full-stack, role-based CRM application designed to help sales and marketing teams organize leads, schedule follow-ups, monitor pipeline stages, and maintain a traceable history of lead interactions.
 
-This project is built to showcase a practical full-stack workflow using React on the frontend, Express and MongoDB on the backend, and JWT-based protection for secure access.
+The application combines a responsive React interface with an Express REST API, MongoDB Atlas persistence, JWT authentication, record-level authorization, Redux state management, and automated activity tracking. Both the frontend and backend are deployed on Vercel.
 
 ## Live Demo
 
-- Application: https://leadflow-hazel-xi.vercel.app
-- API Health: https://leadflow-api-liard.vercel.app/api/health
+- Application: [Open LeadFlow](https://leadflow-hazel-xi.vercel.app)
+- API health: [Check LeadFlow API](https://leadflow-api-liard.vercel.app/api/health)
 
-## Current Status
+## Project Status
 
-This project is in an active MVP stage and is not yet a complete production CRM.
+**Current release: v1.1.0**
 
-What is working now:
-- User registration and login
-- JWT-authenticated protected routes
-- Dashboard KPI cards for lead performance
-- Lead creation, update, and delete operations
-- Search and status filtering for leads
-- Follow-up tracking via next follow-up dates
-- Role-based access logic using system roles
-- Responsive dashboard UI with Redux state management
-
-What is still in progress:
-- Advanced team assignment workflows
-- Sales rep management and lead ownership flows
-- Detailed lead profile pages and activity history
-- Analytics dashboards and reporting views
-- Automated follow-up reminders and notifications
-- Production-level testing and deployment cleanup
+LeadFlow is a functional, deployed CRM portfolio project under active development. Authentication, lead management, pipeline analytics, follow-up scheduling, lead-detail pages, interaction notes, and activity history are implemented and working.
 
 ## Features
 
-### Implemented
-- Secure authentication with JWT
-- Protected frontend and API routes
-- Role-based access using `admin`, `leader`, `member`, and `viewer`
-- Dashboard summary for total, new, contacted, qualified, converted, and lost leads
-- Conversion rate tracking
-- Search by lead name, email, or phone number
-- Filter leads by status
-- Create, edit, and delete lead records
-- Lead source, notes, and next follow-up tracking
-- MongoDB-backed persistence with Mongoose
-- Responsive React interface
+### Authentication and authorization
 
-### Planned
-- Team dashboards and assignment workflows
-- Sales rep analytics and leaderboard views
-- Lead detail pages with history and notes
-- Reminder automation and scheduling
-- CSV export and reporting
-- Admin controls and user management
-- Email/SMS integrations
+- User registration, login, logout, and persistent authenticated sessions
+- Password hashing with bcryptjs
+- JWT-protected frontend and API routes
+- Role-based access using `admin`, `leader`, `member`, and `viewer`
+- Record-level authorization for lead and note operations
+- Active-user verification on authenticated requests
+
+### Lead management
+
+- Create, retrieve, update, and delete leads
+- Five-stage pipeline: new, contacted, qualified, converted, and lost
+- Search by lead name, email, or phone number
+- Filter leads by pipeline status
+- Track lead source, contact details, background notes, and next follow-up date
+- Dedicated lead-detail page with complete lead information
+- Ownership-aware access for assigned leads
+
+### Notes and activity history
+
+- Add multiple dated interaction notes to a lead
+- Edit and delete notes with author and role-based permissions
+- Display note author, creation time, and edited status
+- Automatically record lead creation, updates, status changes, and follow-up changes
+- Automatically record note creation, editing, and deletion
+- Display a chronological activity timeline with user attribution and activity-specific icons
+- Remove related notes and activities when a lead is deleted
+
+### Dashboard and user experience
+
+- KPI cards for total, new, contacted, qualified, converted, and lost leads
+- Conversion-rate analytics
+- Upcoming and overdue follow-up counts
+- Responsive React and Tailwind CSS interface
+- Redux Toolkit state management for dashboard and lead-detail workflows
+- Loading, empty, validation, and controlled error states
+- Refresh-safe React Router routes on Vercel
 
 ## Tech Stack
 
@@ -69,24 +68,27 @@ What is still in progress:
 | --- | --- |
 | Frontend | React, Vite, Redux Toolkit, React Router, Axios, Tailwind CSS, Lucide React |
 | Backend | Node.js, Express.js |
-| Database | MongoDB, Mongoose |
-| Authentication | JWT, bcryptjs |
+| Database | MongoDB Atlas, Mongoose |
+| Authentication | JSON Web Token, bcryptjs |
 | API | RESTful API |
+| Deployment | Vercel |
 
 ## Application Flow
 
 ```text
 Register / Login
       ↓
-JWT authentication
+JWT authentication and protected routes
       ↓
-Protected dashboard
+Role-aware dashboard and lead access
       ↓
-Create, read, update, and delete leads
+Create, search, filter, update, and delete leads
       ↓
-Track follow-ups and pipeline status
+Open lead details and manage interaction notes
       ↓
-Monitor performance through dashboard statistics
+Automatically record changes in the activity timeline
+      ↓
+Track follow-ups, pipeline stages, and conversion metrics
 ```
 
 ## Project Structure
@@ -100,23 +102,30 @@ LeadFlow/
 │   │   ├── config/
 │   │   │   └── db.js
 │   │   ├── controllers/
+│   │   │   ├── activityController.js
 │   │   │   ├── authController.js
 │   │   │   ├── dashboardController.js
-│   │   │   └── leadController.js
+│   │   │   ├── leadController.js
+│   │   │   └── leadNoteController.js
 │   │   ├── middleware/
 │   │   │   └── authMiddleware.js
 │   │   ├── models/
+│   │   │   ├── Activity.js
 │   │   │   ├── Lead.js
+│   │   │   ├── LeadNote.js
 │   │   │   ├── Rank.js
 │   │   │   └── User.js
 │   │   ├── routes/
 │   │   │   ├── authRoutes.js
 │   │   │   ├── dashboardRoutes.js
 │   │   │   └── leadRoutes.js
+│   │   ├── services/
+│   │   │   └── activityService.js
 │   │   └── utils/
-│   │       └── generateToken.js
-│   ├── package.json
-│   └── .env.example
+│   │       ├── generateToken.js
+│   │       └── leadAccess.js
+│   ├── .env.example
+│   └── package.json
 ├── frontend/
 │   ├── public/
 │   │   ├── leadflow-logo-white-bg.svg
@@ -131,10 +140,13 @@ LeadFlow/
 │   │   ├── features/
 │   │   │   ├── auth/
 │   │   │   │   └── authSlice.js
-│   │   │   └── crm/
-│   │   │       └── crmSlice.js
+│   │   │   ├── crm/
+│   │   │   │   └── crmSlice.js
+│   │   │   └── leads/
+│   │   │       └── leadDetailsSlice.js
 │   │   ├── pages/
 │   │   │   ├── DashboardPage.jsx
+│   │   │   ├── LeadDetailsPage.jsx
 │   │   │   ├── LoginPage.jsx
 │   │   │   └── RegisterPage.jsx
 │   │   ├── services/
@@ -142,10 +154,11 @@ LeadFlow/
 │   │   ├── App.jsx
 │   │   ├── index.css
 │   │   └── main.jsx
-│   ├── package.json
-│   ├── vite.config.js
+│   ├── .env.example
 │   ├── index.html
-│   └── .env.example
+│   ├── package.json
+│   ├── vercel.json
+│   └── vite.config.js
 ├── .gitignore
 └── README.md
 ```
@@ -158,16 +171,17 @@ LeadFlow/
 | --- | --- | --- | --- |
 | POST | `/api/auth/register` | Public | Create a new account |
 | POST | `/api/auth/login` | Public | Log in and receive a JWT |
-| GET | `/api/auth/me` | Authenticated | Retrieve the current authenticated user |
+| GET | `/api/auth/me` | Authenticated | Retrieve the current user |
 
 ### Leads
 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
 | POST | `/api/leads` | Authenticated | Create a lead |
-| GET | `/api/leads` | Authenticated | List leads permitted to the user |
-| PATCH | `/api/leads/:id` | Authorized owner/Admin/Leader | Update a lead |
-| DELETE | `/api/leads/:id` | Authorized owner/Admin/Leader | Delete a lead |
+| GET | `/api/leads` | Authenticated | List leads accessible to the user |
+| GET | `/api/leads/:id` | Authorized | Retrieve one lead and its details |
+| PATCH | `/api/leads/:id` | Authorized | Update a lead |
+| DELETE | `/api/leads/:id` | Authorized | Delete a lead and related records |
 
 Supported lead queries:
 
@@ -177,16 +191,26 @@ GET /api/leads?search=Amit
 GET /api/leads?status=new&search=Sharma
 ```
 
-### Dashboard
+### Lead notes
 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
-| GET | `/api/dashboard/stats` | Authenticated | Get dashboard KPI counts |
+| GET | `/api/leads/:id/notes` | Authorized | List a lead's interaction notes |
+| POST | `/api/leads/:id/notes` | Authorized | Add an interaction note |
+| PATCH | `/api/leads/:id/notes/:noteId` | Note author/Admin/Leader | Edit a note |
+| DELETE | `/api/leads/:id/notes/:noteId` | Note author/Admin/Leader | Delete a note |
 
-### Health Check
+### Lead activities
 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
+| GET | `/api/leads/:id/activities` | Authorized | Retrieve the latest lead activities |
+
+### Dashboard and health
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/dashboard/stats` | Authenticated | Retrieve dashboard KPI counts |
 | GET | `/api/health` | Public | Check whether the API is running |
 
 ## Getting Started
@@ -195,32 +219,28 @@ GET /api/leads?status=new&search=Sharma
 
 - Node.js 20.19+
 - npm
-- MongoDB instance or MongoDB Atlas
+- MongoDB instance or MongoDB Atlas cluster
 
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/PankajPraja1/LeadFlow.git
 cd LeadFlow
 ```
 
-### 2. Install backend dependencies
+### 2. Install dependencies
 
 ```bash
 cd backend
 npm install
-```
 
-### 3. Install frontend dependencies
-
-```bash
 cd ../frontend
 npm install
 ```
 
-### 4. Configure environment variables
+### 3. Configure backend environment variables
 
-Create a `.env` file inside the `backend` folder:
+Create `backend/.env`:
 
 ```env
 PORT=5000
@@ -229,7 +249,17 @@ JWT_SECRET=replace_with_a_long_random_secret
 CLIENT_URL=http://localhost:5173
 ```
 
-### 5. Run the app
+For MongoDB Atlas, replace `MONGODB_URI` with the Atlas connection string. Never commit the real `.env` file.
+
+### 4. Configure frontend environment variables
+
+Create `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:5000/api
+```
+
+### 5. Run the application
 
 Start the backend:
 
@@ -245,94 +275,79 @@ cd frontend
 npm run dev
 ```
 
-Then open:
-
-```text
-http://localhost:5173
-```
+Open `http://localhost:5173`.
 
 ## Available Scripts
 
 ### Backend
 
 ```bash
-npm run dev   # start the backend in development mode
-npm start     # start the backend with Node
+npm run dev   # Start with Nodemon
+npm start     # Start with Node.js
 ```
 
 ### Frontend
 
 ```bash
-npm run dev      # run Vite dev server
-npm run build    # create production bundle
-npm run preview  # preview the production build
-npm run lint     # run ESLint checks
+npm run dev       # Start the Vite development server
+npm run build     # Create a production bundle
+npm run preview   # Preview the production bundle
+npm run lint      # Run ESLint
 ```
 
 ## Authorization Model
 
-| Role | Current behavior |
+| Role | Current behaviour |
 | --- | --- |
-| Admin | Can access and manage all leads |
-| Leader | Can access and manage all leads |
-| Member | Typically manages leads assigned to their account |
+| Admin | Can access and manage all leads and notes |
+| Leader | Can access and manage all leads and notes |
+| Member | Can access assigned leads and manage notes they authored |
 | Viewer | Can access leads assigned to their account |
 
-New users default to the `member` role. Role assignment is managed by the backend and not exposed as a public registration option.
+New registrations receive the `member` role. System roles are assigned by the backend and cannot be selected through public registration.
 
 ## Security
 
-- Passwords are hashed before saving to the database
-- Protected endpoints require a valid JWT token
-- User status is checked for each authenticated request
-- Lead update and delete requests are restricted by ownership and role rules
-- Sensitive values such as JWT secret and MongoDB URI are stored in environment variables
-- Frontend origin can be restricted with `CLIENT_URL`
+- Passwords are hashed before storage
+- Protected endpoints require a valid JWT
+- Authenticated requests verify that the associated user still exists and is active
+- Lead access is restricted through server-side role and ownership filters
+- Note editing and deletion require authorship or elevated role access
+- Invalid lead and note identifiers are validated before database operations
+- MongoDB and JWT credentials remain in backend environment variables
+- CORS restricts browser access to the configured frontend origin
+- Database connections are reused in the serverless deployment environment
 
-## Future Improvements
+## Version History
 
-- Lead assignment between team members
-- Leader and admin dashboards
-- Lead detail pages and notes history
-- Reminder automation and activity tracking
-- Pagination and reporting
-- Automated tests and CI/CD
-- Email and SMS integrations
+### v1.1.0
 
-These improvements are planned for the next stage and are not part of the current MVP.
+- Added dedicated lead-detail pages
+- Added multiple interaction notes with edit/delete permissions
+- Added automatic lead and note activity tracking
+- Added chronological activity timeline with user attribution
+- Improved record-level authorization and invalid-ID handling
+- Added related-record cleanup when deleting leads
 
-## Project Status
+### v1.0.0
 
-The core MVP is functional. Authentication, protected routes, lead management, filtering, and dashboard analytics are implemented, making the project a strong foundation for a more complete CRM platform.
+- Released the deployed CRM MVP
+- Added authentication, protected routes, lead CRUD, search, filters, follow-up dates, and dashboard analytics
+- Connected MongoDB Atlas and deployed the frontend and backend on Vercel
+
+## Roadmap
+
+- User profile and password-management page
+- Dedicated upcoming and overdue follow-ups workspace
+- Reusable marketing-plan and outreach-sequence management
+- Team member management and lead assignment
+- Automated email reminders and in-app notifications
+- AI-assisted lead summaries, prioritization, next actions, and outreach drafts
+- Real-time dashboard updates
+- Pagination, automated tests, API documentation, and CI/CD
 
 ## Author
 
-Pankaj Prajapati
+**Pankaj Prajapati**
 
-Built as a full-stack portfolio project to demonstrate lead management workflow design, API development, database modeling, and dashboard UI implementation.
-
----
-
-## Developer Notes
-
-This project is intentionally in an early but meaningful stage: the dashboard and core workflow are already in place, and the architecture supports future expansion without a rebuild. It is suitable as a portfolio project, internal prototype, or starting point for a broader CRM platform.
-
----
-
-## License
-
-This project is currently under active development and is intended for learning and portfolio use. License details may be added as the project matures.
-
----
-
-## Summary
-
-LeadFlow is a practical full-stack CRM dashboard that reflects a real-world sales workflow. It is not production-complete yet, but it already demonstrates important skills in authentication, API design, database modeling, state management, and modern frontend development.
-
-It is a strong foundation for a resume portfolio because it shows:
-- full-stack product thinking
-- frontend + backend integration
-- database-driven application logic
-- real user workflow design
-- a dashboard-first business tool prototype
-
+Built as a full-stack portfolio project to demonstrate secure API development, database modelling, record-level authorization, state management, deployment, and business-workflow design.
