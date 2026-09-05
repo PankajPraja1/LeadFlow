@@ -2,14 +2,12 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 require("../models/Rank");
 
+// Middleware to protect routes and ensure the user is authenticated
 const protect = async (req, res, next) => {
   try {
     const authorizationHeader = req.headers.authorization;
 
-    if (
-      !authorizationHeader ||
-      !authorizationHeader.startsWith("Bearer ")
-    ) {
+    if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
         message: "Authentication required",
@@ -25,19 +23,28 @@ const protect = async (req, res, next) => {
       });
     }
 
-    const decodedToken = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decodedToken.userId)
+    const user = await User
+      .findById(decodedToken.userId)
       .populate("rank", "name level description")
-      .select("-password");
+      .select("+tokenVersion -password");
 
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "The user associated with this token no longer exists",
+      });
+    }
+
+    const tokenVersion = decodedToken.tokenVersion ?? 0;
+
+    const currentTokenVersion = user.tokenVersion ?? 0;
+
+    if (tokenVersion !== currentTokenVersion) {
+      return res.status(401).json({
+        success: false,
+        message: "Your session is no longer valid. Please log in again.",
       });
     }
 
@@ -47,7 +54,7 @@ const protect = async (req, res, next) => {
         message: "Your account has been deactivated",
       });
     }
-    
+
     req.user = user;
 
     next();

@@ -1,9 +1,7 @@
-import { BarChart3, CheckCircle2, Clock3, Eye, LogOut, Pencil, Plus, Search, Target, Trash2, UserPlus, Users, } from "lucide-react";
+import { BarChart3, CheckCircle2, Clock3, Eye, LogOut, Pencil, Plus, Search, Target, Trash2, UserPlus, Users, UserRound } from "lucide-react";
 
 import { useEffect, useState } from "react";
-
 import { useDispatch, useSelector } from "react-redux";
-
 import { useNavigate } from "react-router-dom";
 
 import { logout } from "../features/auth/authSlice";
@@ -16,8 +14,9 @@ const statusStyles = {
   qualified: "bg-purple-50 text-purple-700",
   converted: "bg-emerald-50 text-emerald-700",
   lost: "bg-red-50 text-red-700",
-};
+}; // Styles for different lead statuses, used to display status badges with appropriate colors
 
+// DashboardPage component displays the dashboard with lead statistics and a list of leads. It allows users to search, filter, create, edit, and delete leads. The component fetches data from the Redux store and handles user interactions such as opening modals and logging out.
 function DashboardPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -35,7 +34,7 @@ function DashboardPage() {
   useEffect(() => {
     dispatch(fetchDashboardStats());
     dispatch(fetchLeads());
-  }, [dispatch]);
+  }, [dispatch]); // Fetch dashboard statistics and leads when the component mounts
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -44,7 +43,7 @@ function DashboardPage() {
       search: search.trim(),
       status,
     }));
-  };
+  }; // Handle the search form submission by dispatching an action to fetch leads based on the search query and selected status
 
   const handleStatusChange = (event) => {
     const selectedStatus = event.target.value;
@@ -55,7 +54,7 @@ function DashboardPage() {
       search: search.trim(),
       status: selectedStatus,
     }));
-  };
+  }; // Handle the status filter change by updating the state and dispatching an action to fetch leads based on the selected status and current search query
 
   const refreshDashboard = async () => {
     await Promise.all([
@@ -65,7 +64,7 @@ function DashboardPage() {
       })),
       dispatch(fetchDashboardStats()),
     ]);
-  };
+  }; // Refresh the dashboard by fetching both leads and dashboard statistics concurrently, ensuring the displayed data is up-to-date after any changes such as creating, updating, or deleting leads
 
   const openCreateModal = () => {
     setEditingLead(null);
@@ -126,6 +125,7 @@ function DashboardPage() {
     navigate("/login");
   };
 
+  // Define the statistics cards to be displayed on the dashboard, each with a label, value, icon, and styling for the icon
   const statCards = [
     {
       label: "Total Leads",
@@ -182,6 +182,15 @@ function DashboardPage() {
               </p>
             </div>
 
+            <button type="button" onClick={() => navigate("/profile")}
+              className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <UserRound size={17} />
+              <span className="hidden sm:inline">
+                Profile
+              </span>
+            </button>
+
             <button onClick={handleLogout}
               className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
             >
@@ -231,7 +240,7 @@ function DashboardPage() {
                   </div>
                 </div>
               </article>
-            );
+            ); // Render each statistics card with its label, value, and icon, applying appropriate styles for the icon based on the card's data
           })}
         </section>
 
@@ -294,19 +303,12 @@ function DashboardPage() {
               <div className="relative">
                 <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
 
-                <input
-                  value={search}
-                  onChange={(event) =>
-                    setSearch(event.target.value)
-                  }
-                  placeholder="Search leads..."
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search leads..."
                   className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 outline-none focus:border-blue-500 sm:w-64"
                 />
               </div>
 
-              <select
-                value={status}
-                onChange={handleStatusChange}
+              <select value={status} onChange={handleStatusChange}
                 className="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2.5 outline-none focus:border-blue-500"
               >
                 <option value="">All statuses</option>
@@ -393,30 +395,17 @@ function DashboardPage() {
 
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/leads/${lead._id}`)}
-                            title="View lead details"
+                          <button type="button" onClick={() => navigate(`/leads/${lead._id}`)} title="View lead details"
                             className="cursor-pointer rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-blue-700"
                           >
                             <Eye size={17} />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(lead)}
-                            title="Edit lead"
-                            className="rounded-lg p-2 text-blue-700 hover:bg-blue-50 cursor-pointer"
-                          >
+                          <button type="button" onClick={() => openEditModal(lead)} title="Edit lead" className="rounded-lg p-2 text-blue-700 hover:bg-blue-50 cursor-pointer" >
                             <Pencil size={17} />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteLead(lead)}
-                            title="Delete lead"
-                            className="rounded-lg p-2 text-red-600 hover:bg-red-50 cursor-pointer"
-                          >
+                          <button type="button" onClick={() => handleDeleteLead(lead)} title="Delete lead" className="rounded-lg p-2 text-red-600 hover:bg-red-50 cursor-pointer" >
                             <Trash2 size={17} />
                           </button>
                         </div>
@@ -439,7 +428,7 @@ function DashboardPage() {
         onSave={handleSaveLead}
       />
     </div>
-  );
+  ); // Render the dashboard page with header, statistics cards, lead list, and modals for creating/editing leads
 }
 
 export default DashboardPage;
