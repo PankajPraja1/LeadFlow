@@ -17,7 +17,7 @@ The application combines a responsive React interface with an Express REST API, 
 
 ## Project Status
 
-**Current release: v1.1.0**
+**Current release: v1.2.0**
 
 LeadFlow is a functional, deployed CRM portfolio project under active development. Authentication, lead management, pipeline analytics, follow-up scheduling, lead-detail pages, interaction notes, and activity history are implemented and working.
 
@@ -31,6 +31,11 @@ LeadFlow is a functional, deployed CRM portfolio project under active developmen
 - Role-based access using `admin`, `leader`, `member`, and `viewer`
 - Record-level authorization for lead and note operations
 - Active-user verification on authenticated requests
+- Dedicated profile and account-security page
+- Secure name and email updates
+- Current-password verification for email changes
+- Password change with confirmation and bcrypt rehashing
+- Versioned JWT sessions that invalidate older tokens after password changes
 
 ### Lead management
 
@@ -147,6 +152,7 @@ LeadFlow/
 │   │   ├── pages/
 │   │   │   ├── DashboardPage.jsx
 │   │   │   ├── LeadDetailsPage.jsx
+│   │   │   ├── ProfilePage.jsx
 │   │   │   ├── LoginPage.jsx
 │   │   │   └── RegisterPage.jsx
 │   │   ├── services/
@@ -172,6 +178,8 @@ LeadFlow/
 | POST | `/api/auth/register` | Public | Create a new account |
 | POST | `/api/auth/login` | Public | Log in and receive a JWT |
 | GET | `/api/auth/me` | Authenticated | Retrieve the current user |
+| PATCH | `/api/auth/profile` | Authenticated | Update the current user's name or email |
+| PATCH | `/api/auth/password` | Authenticated | Change password and issue a versioned JWT |
 
 ### Leads
 
@@ -317,8 +325,20 @@ New registrations receive the `member` role. System roles are assigned by the ba
 - MongoDB and JWT credentials remain in backend environment variables
 - CORS restricts browser access to the configured frontend origin
 - Database connections are reused in the serverless deployment environment
+- Email changes require current-password verification
+- Password changes increment the user's token version
+- JWT token-version checks invalidate sessions created before a password change
 
 ## Version History
+
+### v1.2.0
+
+- Added a dedicated profile and account-security page
+- Added secure name and email updates
+- Added current-password verification for email changes
+- Added authenticated password-change workflow
+- Added versioned JWT invalidation for older sessions
+- Improved authentication validation and Redux feedback states
 
 ### v1.1.0
 
@@ -337,7 +357,6 @@ New registrations receive the `member` role. System roles are assigned by the ba
 
 ## Roadmap
 
-- User profile and password-management page
 - Dedicated upcoming and overdue follow-ups workspace
 - Reusable marketing-plan and outreach-sequence management
 - Team member management and lead assignment

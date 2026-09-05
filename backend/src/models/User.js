@@ -47,6 +47,13 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -68,6 +75,7 @@ userSchema.methods.comparePassword = async function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
 
+// Customize the JSON output to exclude sensitive information
 userSchema.set("toJSON", {
   transform: function (document, returnedObject) {
     delete returnedObject.password;
