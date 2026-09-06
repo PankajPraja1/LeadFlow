@@ -1,6 +1,8 @@
 const { OAuth2Client, } = require("google-auth-library"); // Import the Google OAuth2 client
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
+const crypto = require("crypto");
+const sendEmail = require("../utils/sendEmail");
 
 // Initialize the Google OAuth2 client with the client ID from environment variables
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -11,9 +13,9 @@ const formatUser = (user) => {
     id: user._id,
     name: user.name,
     email: user.email,
-    profilePicture: user.profilePicture || "",
     systemRole: user.systemRole,
     rank: user.rank,
+    profilePicture: user.profilePicture || "",
     isActive: user.isActive,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
@@ -386,16 +388,21 @@ const googleLogin = async (req, res) => {
 
     const payload = ticket.getPayload();
 
-    if (!payload || !payload.sub || !payload.email || !payload.email_verified) {
+    if (!payload?.sub || !payload?.email || payload.email_verified !== true) {
       return res.status(401).json({
         success: false,
         message: "Unable to verify Google account",
       });
     }
 
-    const googleId = payload.sub;
+    const {
+      sub: googleId,
+      name,
+      email,
+      picture,
+    } = payload;
 
-    const normalizedEmail = payload.email.toLowerCase().trim();
+    const normalizedEmail = email.toLowerCase().trim();
 
     let user = await User.findOne({
       googleId,
@@ -416,10 +423,10 @@ const googleLogin = async (req, res) => {
 
     if (!user) {
       user = await User.create({
-        name: payload.name || normalizedEmail.split("@")[0],
+        name: name || normalizedEmail.split("@")[0],
         email: normalizedEmail,
         googleId,
-        profilePicture: payload.picture || "",
+        profilePicture: picture || "",
       });
     } else {
       let shouldSave = false;
@@ -429,9 +436,8 @@ const googleLogin = async (req, res) => {
         shouldSave = true;
       }
 
-      if ( payload.picture && user.profilePicture !== payload.picture) {
-        user.profilePicture = payload.picture;
-
+      if (picture && user.profilePicture !== picture) {
+        user.profilePicture = picture;
         shouldSave = true;
       }
 
@@ -440,9 +446,9 @@ const googleLogin = async (req, res) => {
       }
     }
 
-    await user.populate( "rank", "name level description");
+    await user.populate("rank", "name level description");
 
-    const token = generateToken( user._id, user.tokenVersion ?? 0);
+    const token = generateToken(user._id, user.tokenVersion ?? 0);
 
     return res.status(200).json({
       success: true,
@@ -451,11 +457,158 @@ const googleLogin = async (req, res) => {
       user: formatUser(user),
     });
   } catch (error) {
-    console.error( "Google authentication error:", error.message);
+    console.error("Google authentication error:", error);
 
     return res.status(401).json({
       success: false,
       message: "Google authentication failed",
+    });
+  }
+};
+
+// Forgot password function controller
+const forgotPassword = async (req, res) => {
+  try {
+    const email = req.body.email?.toLowerCase().trim();
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email address is required",
+      });
+    }
+
+    const genericResponse = {
+      success: true,
+      message: "If an account exists for this email, a reset link has been sent",
+    };
+
+    const user = await User.findOne({ email });
+
+    if (!user || !user.isActive) {
+      return res.status(200).json(genericResponse);
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
+
+    await user.save();
+
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Reset your LeadFlow password",
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2>Reset your LeadFlow password</h2>
+
+            <p>Hello ${user.name},</p>
+
+            <p>
+              We received a request to reset your LeadFlow password.
+            </p>
+
+            <p>
+              <a href="${resetUrl}">
+                Reset password
+              </a>
+            </p>
+
+            <p>
+              This link expires in 15 minutes. If you did not request this, you can safely ignore this email.
+            </p>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      user.passwordResetToken = null;
+      user.passwordResetExpires = null;
+      await user.save();
+
+      console.error( "Password reset email error:", emailError.message);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to send password reset email",
+      });
+    }
+
+    return res.status(200).json(genericResponse);
+  } catch (error) {
+    console.error("Forgot password error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to process password reset request",
+    });
+  }
+};
+
+// Reset password function controller
+const resetPassword = async (req, res) => {
+  try {
+    const { password, confirmPassword } = req.body;
+
+    if (!password || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Password and password confirmation are required",
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must contain at least 6 characters",
+      });
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: {
+        $gt: Date.now(),
+      },
+    }).select("+passwordResetToken +passwordResetExpires +tokenVersion");
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset link is invalid or has expired",
+      });
+    }
+
+    user.password = password;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully. You can now log in.",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to reset password",
     });
   }
 };
@@ -467,5 +620,7 @@ module.exports = {
   getCurrentUser,
   updateProfile,
   changePassword,
+  forgotPassword,
+  resetPassword,
 };
 

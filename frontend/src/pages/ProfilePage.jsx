@@ -205,8 +205,7 @@ function ProfilePage() {
                     </h1>
 
                     <p className="mt-2 text-slate-500">
-                        Manage your account information
-                        and password.
+                        Manage your account information and password.
                     </p>
                 </section>
 
@@ -226,7 +225,15 @@ function ProfilePage() {
                     <aside className="space-y-6">
                         <section className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
                             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 text-2xl font-bold text-blue-700">
-                                {initials}
+                                {user?.profilePicture ? (
+                                    <img src={user.profilePicture} alt={`${user.name || "User"} profile`} referrerPolicy="no-referrer"
+                                        className="rounded-full border border-slate-200 object-cover"
+                                    />
+                                ) : (
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                                        <UserRound size={20} />
+                                    </div>
+                                )}
                             </div>
 
                             <h2 className="mt-4 text-xl font-bold text-slate-900">

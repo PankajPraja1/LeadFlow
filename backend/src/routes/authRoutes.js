@@ -7,6 +7,8 @@ const {
   getCurrentUser,
   updateProfile,
   changePassword,
+  forgotPassword,
+  resetPassword,
 } = require("../controllers/authController");
 
 // Add protected route for getting current user
@@ -33,5 +35,11 @@ router.patch("/profile",
 router.patch("/password",
   protect,
   changePassword);
+
+// Add route for forgot password
+router.post("/forgot-password", forgotPassword);
+
+// Add route for resetting password
+router.patch("/reset-password/:token", resetPassword);
 
 module.exports = router;

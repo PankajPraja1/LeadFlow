@@ -121,22 +121,22 @@ function LoginPage() {
                         </div>
 
                         <div>
-                            <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-700" >
-                                Password
-                            </label>
+                            <div className="mb-2 flex items-center justify-between">
+                                <label htmlFor="password" className="text-sm font-medium text-slate-700">
+                                    Password
+                                </label>
 
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                value={formData.password}
-                                onChange={handleChange}
-                                autoComplete="current-password"
-                                required
-                                placeholder="Enter your password"
+                                <Link to="/forgot-password" className="text-sm font-semibold text-blue-700 hover:text-blue-800">
+                                    Forgot password?
+                                </Link>
+                            </div>
+
+                            <input id="password" name="password" type="password" value={formData.password} onChange={handleChange} autoComplete="current-password" required placeholder="Enter your password"
                                 className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
+
+
 
                         <button type="submit" disabled={isLoading}
                             className="cursor-pointer w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
@@ -165,11 +165,11 @@ function LoginPage() {
                         >
                             Create account
                         </Link>
-                    </p> 
+                    </p>
                 </div>
             </section>
         </main>
     ); // The component renders a login page with a form for email and password login, as well as a Google login button. It also displays any error messages related to the login process and provides navigation links for account creation.
-} // returns the LoginPage component, which serves as the main interface for user authentication in the application.
+}
 
 export default LoginPage;

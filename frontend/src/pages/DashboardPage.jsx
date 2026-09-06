@@ -172,14 +172,26 @@ function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-semibold text-slate-800">
-                {user?.name}
-              </p>
+            <div className="flex items-center gap-3">
+              {user?.profilePicture ? (
+                <img src={user.profilePicture} alt={`${user.name || "User"} profile`} referrerPolicy="no-referrer"
+                  className="h-10 w-10 rounded-full border border-slate-200 object-cover"
+                />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                  <UserRound size={20} />
+                </div>
+              )}
 
-              <p className="text-xs capitalize text-slate-500">
-                {user?.systemRole}
-              </p>
+              <div className="hidden text-right sm:block">
+                <p className="text-sm font-semibold text-slate-800">
+                  {user?.name}
+                </p>
+
+                <p className="text-xs capitalize text-slate-500">
+                  {user?.systemRole}
+                </p>
+              </div>
             </div>
 
             <button type="button" onClick={() => navigate("/profile")}
