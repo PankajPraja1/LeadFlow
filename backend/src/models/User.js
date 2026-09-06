@@ -73,6 +73,18 @@ const userSchema = new mongoose.Schema(
       min: 0,
       select: false,
     },
+
+    passwordResetToken: {
+      type: String,
+      select: false,
+      default: null,
+    },
+
+    passwordResetExpires: {
+      type: Date,
+      select: false,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -93,8 +105,8 @@ userSchema.pre("save", async function () {
 // Password-comparison method for login
 userSchema.methods.comparePassword = async function (enteredPassword) {
   if (!this.password) {
-      return false;
-    }
+    return false;
+  }
 
   return bcrypt.compare(enteredPassword, this.password);
 };
