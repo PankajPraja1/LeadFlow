@@ -1,5 +1,9 @@
+const { OAuth2Client, } = require("google-auth-library"); // Import the Google OAuth2 client
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
+
+// Initialize the Google OAuth2 client with the client ID from environment variables
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Format user data for response
 const formatUser = (user) => {
@@ -7,6 +11,7 @@ const formatUser = (user) => {
     id: user._id,
     name: user.name,
     email: user.email,
+    profilePicture: user.profilePicture || "",
     systemRole: user.systemRole,
     rank: user.rank,
     isActive: user.isActive,
@@ -353,9 +358,112 @@ const changePassword = async (req, res) => {
   }
 };
 
+// Google login function controller
+const googleLogin = async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: "Google credential is required",
+      });
+    }
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.error("GOOGLE_CLIENT_ID is missing");
+
+      return res.status(500).json({
+        success: false,
+        message: "Google authentication is unavailable",
+      });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload || !payload.sub || !payload.email || !payload.email_verified) {
+      return res.status(401).json({
+        success: false,
+        message: "Unable to verify Google account",
+      });
+    }
+
+    const googleId = payload.sub;
+
+    const normalizedEmail = payload.email.toLowerCase().trim();
+
+    let user = await User.findOne({
+      googleId,
+    }).select("+googleId +tokenVersion");
+
+    if (!user) {
+      user = await User.findOne({
+        email: normalizedEmail,
+      }).select("+googleId +tokenVersion");
+    }
+
+    if (user && !user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated",
+      });
+    }
+
+    if (!user) {
+      user = await User.create({
+        name: payload.name || normalizedEmail.split("@")[0],
+        email: normalizedEmail,
+        googleId,
+        profilePicture: payload.picture || "",
+      });
+    } else {
+      let shouldSave = false;
+
+      if (!user.googleId) {
+        user.googleId = googleId;
+        shouldSave = true;
+      }
+
+      if ( payload.picture && user.profilePicture !== payload.picture) {
+        user.profilePicture = payload.picture;
+
+        shouldSave = true;
+      }
+
+      if (shouldSave) {
+        await user.save();
+      }
+    }
+
+    await user.populate( "rank", "name level description");
+
+    const token = generateToken( user._id, user.tokenVersion ?? 0);
+
+    return res.status(200).json({
+      success: true,
+      message: "Google authentication successful",
+      token,
+      user: formatUser(user),
+    });
+  } catch (error) {
+    console.error( "Google authentication error:", error.message);
+
+    return res.status(401).json({
+      success: false,
+      message: "Google authentication failed",
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
+  googleLogin,
   getCurrentUser,
   updateProfile,
   changePassword,

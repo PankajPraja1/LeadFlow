@@ -4,7 +4,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import { clearAuthError, loginUser } from "../features/auth/authSlice";
+import GoogleLoginButton from "../components/GoogleLoginButton";
 
+// LoginPage component handles user login functionality, including email/password login and Google OAuth login. It manages form state, dispatches login actions, and handles navigation upon successful login.
 function LoginPage() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -31,7 +33,7 @@ function LoginPage() {
             ...currentData,
             [name]: value,
         }));
-    };
+    }; // handleChange updates the formData state when the user types in the email or password fields. It uses the name attribute of the input fields to determine which field to update.
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -143,6 +145,18 @@ function LoginPage() {
                         </button>
                     </form>
 
+                    <div className="my-6 flex items-center gap-3">
+                        <div className="h-px flex-1 bg-slate-200" />
+
+                        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                            Or
+                        </span>
+
+                        <div className="h-px flex-1 bg-slate-200" />
+                    </div>
+
+                    <GoogleLoginButton />
+
                     <p className="mt-6 text-center text-sm text-slate-600">
                         Don&apos;t have an account?{" "}
                         <Link
@@ -151,11 +165,11 @@ function LoginPage() {
                         >
                             Create account
                         </Link>
-                    </p>
+                    </p> 
                 </div>
             </section>
         </main>
-    );
-}
+    ); // The component renders a login page with a form for email and password login, as well as a Google login button. It also displays any error messages related to the login process and provides navigation links for account creation.
+} // returns the LoginPage component, which serves as the main interface for user authentication in the application.
 
 export default LoginPage;

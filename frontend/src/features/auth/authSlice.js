@@ -7,6 +7,21 @@ const getErrorMessage = (error, fallbackMessage) => {
   return (error.response?.data?.message || fallbackMessage);
 };
 
+// Exported async thunk for Google login
+export const googleLogin = createAsyncThunk("auth/googleLogin", async (credential, thunkAPI) => {
+  try {
+    const response = await api.post("/auth/google", {
+      credential,
+    });
+
+    localStorage.setItem("leadflow_token", response.data.token);
+
+    return response.data;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.response?.data?.message || "Unable to continue with Google");
+  }
+});
+
 // Exported async thunks for user registration, login, fetching current user, updating profile, and changing password
 export const registerUser = createAsyncThunk("auth/register", async (userData, thunkAPI) => {
   try {
@@ -89,7 +104,7 @@ const authSlice = createSlice({
     profileMessage: null,
   },
 
-  // 
+  // Reducers for handling synchronous actions like logout and clearing errors
   reducers: {
     logout: (state) => {
       localStorage.removeItem("leadflow_token");
@@ -115,9 +130,22 @@ const authSlice = createSlice({
     },
   },
 
-  // 
+  // Extra reducers to handle the different states of the async thunks
   extraReducers: (builder) => {
     builder
+      .addCase(googleLogin.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(googleLogin.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.token = action.payload.token;
+        state.user = action.payload.user;
+      })
+      .addCase(googleLogin.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
       .addCase(registerUser.pending, (state) => {
         state.isLoading = true;
         state.error = null;
