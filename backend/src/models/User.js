@@ -24,9 +24,28 @@ const userSchema = new mongoose.Schema(
       ],
     },
 
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      select: false,
+    },
+
+    profilePicture: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: [
+        function () {
+          return !this.googleId;
+        },
+        "Password is required",
+      ],
       minlength: [6, "Password must contain at least 6 characters"],
       select: false,
     },
@@ -62,16 +81,21 @@ const userSchema = new mongoose.Schema(
 
 // Password-hashing middleware
 userSchema.pre("save", async function () {
-  if (!this.isModified("password")) {
+  if (!this.isModified("password") || !this.password) {
     return;
   }
 
   const salt = await bcrypt.genSalt(12);
+
   this.password = await bcrypt.hash(this.password, salt);
 });
 
 // Password-comparison method for login
 userSchema.methods.comparePassword = async function (enteredPassword) {
+  if (!this.password) {
+      return false;
+    }
+
   return bcrypt.compare(enteredPassword, this.password);
 };
 

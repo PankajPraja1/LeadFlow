@@ -3,6 +3,7 @@ const express = require("express");
 const {
   register,
   login,
+  googleLogin,
   getCurrentUser,
   updateProfile,
   changePassword,
@@ -15,6 +16,7 @@ const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
+router.post("/google", googleLogin);
 
 // order matters here, protect middleware should be applied before getCurrentUser
 // Add protected route for getting current user

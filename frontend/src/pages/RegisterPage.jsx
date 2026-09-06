@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { clearAuthError, registerUser } from "../features/auth/authSlice";
+import GoogleLoginButton from "../components/GoogleLoginButton";
 
+// RegisterPage component handles user registration functionality, including form state management, dispatching the registerUser action, and navigation upon successful registration.
 function RegisterPage() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -31,7 +33,7 @@ function RegisterPage() {
             ...currentData,
             [name]: value,
         }));
-    };
+    }; // handleChange updates the formData state
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -59,7 +61,7 @@ function RegisterPage() {
         } catch {
             // The Redux state displays the API error.
         }
-    };
+    }; // HandleSubmit validates the form data and dispatches the registerUser action
 
     return (
         <main className="flex min-h-screen bg-slate-100">
@@ -195,6 +197,18 @@ function RegisterPage() {
                         </button>
                     </form>
 
+                    <div className="my-6 flex items-center gap-3">
+                        <div className="h-px flex-1 bg-slate-200" />
+
+                        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                            Or
+                        </span>
+
+                        <div className="h-px flex-1 bg-slate-200" />
+                    </div>
+
+                    <GoogleLoginButton />
+
                     <p className="mt-6 text-center text-sm text-slate-600">
                         Already have an account?{" "}
                         <Link to="/login" className="font-semibold text-blue-700 hover:text-blue-800" >
@@ -204,7 +218,7 @@ function RegisterPage() {
                 </div>
             </section>
         </main>
-    );
+    ); // The component renders a registration form with fields for name, email, password, and confirm password. It displays validation errors and API errors, and handles form submission to register a new user. Upon successful registration, it navigates the user to the dashboard.
 }
 
 export default RegisterPage;
