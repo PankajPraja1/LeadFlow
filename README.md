@@ -1,14 +1,16 @@
 <div align="center">
   <img src="frontend/public/leadflow-logo-white-bg.svg" alt="LeadFlow logo" width="90" />
   <h1>LeadFlow</h1>
-  <p>A deployed, full-stack CRM for secure lead management, follow-ups, interaction notes, pipeline analytics, and activity tracking.</p>
+
+  <p>A deployed, full-stack CRM for secure lead management, reusable marketing plans, follow-ups, pipeline analytics, and activity tracking.</p>
+
 </div>
 
 ## Overview
 
-LeadFlow is a full-stack, role-based CRM application designed to help sales and marketing teams organize leads, schedule follow-ups, monitor pipeline stages, and maintain a traceable history of lead interactions.
+LeadFlow is a full-stack, role-based CRM application for sales and marketing teams. It combines lead tracking, follow-up scheduling, pipeline analytics, interaction histories, and reusable marketing plans in one responsive workspace.
 
-The application combines a responsive React interface with an Express REST API, MongoDB Atlas persistence, JWT authentication, record-level authorization, Redux state management, and automated activity tracking. Both the frontend and backend are deployed on Vercel.
+The application uses a React and Redux Toolkit frontend, an Express REST API, MongoDB Atlas, JWT and Google authentication, record-level authorization, secure password recovery, and automated activity tracking. Both the frontend and backend are deployed on Vercel.
 
 ## Live Demo
 
@@ -17,54 +19,60 @@ The application combines a responsive React interface with an Express REST API, 
 
 ## Project Status
 
-**Current release: v1.2.0**
+**Current release: v1.4.0**
 
-LeadFlow is a functional, deployed CRM portfolio project under active development. Authentication, lead management, pipeline analytics, follow-up scheduling, lead-detail pages, interaction notes, and activity history are implemented and working.
+Authentication, account security, lead management, pipeline analytics, follow-up scheduling, lead-detail pages, interaction notes, activity history, and marketing-plan management are implemented and deployed.
 
 ## Features
 
-### Authentication and authorization
+### Authentication and account security
 
-- User registration, login, logout, and persistent authenticated sessions
+- Email/password registration and login
+- Google authentication for new and existing users
+- Google profile-picture support
 - Password hashing with bcryptjs
 - JWT-protected frontend and API routes
-- Role-based access using `admin`, `leader`, `member`, and `viewer`
-- Record-level authorization for lead and note operations
-- Active-user verification on authenticated requests
-- Dedicated profile and account-security page
-- Secure name and email updates
-- Current-password verification for email changes
-- Password change with confirmation and bcrypt rehashing
+- Role-based access using `admin`, `leader`, and `member`
+- Active-user checks and persistent authenticated sessions
+- Secure name, email, and password updates
 - Versioned JWT sessions that invalidate older tokens after password changes
+- Email-based password recovery with single-use, SHA-256-hashed tokens
+- Password-reset links that expire after 15 minutes
 
 ### Lead management
 
 - Create, retrieve, update, and delete leads
 - Five-stage pipeline: new, contacted, qualified, converted, and lost
-- Search by lead name, email, or phone number
-- Filter leads by pipeline status
-- Track lead source, contact details, background notes, and next follow-up date
-- Dedicated lead-detail page with complete lead information
+- Search by name, email, or phone and filter by pipeline status
+- Track lead source, contact details, notes, and next follow-up date
+- Dedicated lead-detail pages
 - Ownership-aware access for assigned leads
 
-### Notes and activity history
+### Marketing-plan management
 
-- Add multiple dated interaction notes to a lead
-- Edit and delete notes with author and role-based permissions
-- Display note author, creation time, and edited status
-- Automatically record lead creation, updates, status changes, and follow-up changes
-- Automatically record note creation, editing, and deletion
-- Display a chronological activity timeline with user attribution and activity-specific icons
-- Remove related notes and activities when a lead is deleted
+- Create reusable marketing and lead-conversion plans
+- Store descriptions, target audiences, outreach pitches, and follow-up steps
+- Draft, active, and archived plan states
+- Search, status filtering, and paginated listings
+- Admin access to manage every plan
+- Leader access to create and manage owned plans
+- Member access restricted to active plans
+- Soft deletion through archival to preserve plan history
 
-### Dashboard and user experience
+### Notes, activity, and analytics
 
-- KPI cards for total, new, contacted, qualified, converted, and lost leads
-- Conversion-rate analytics
-- Upcoming and overdue follow-up counts
+- Add, edit, and delete dated interaction notes
+- Author and role-based note permissions
+- Automatic tracking of lead, status, follow-up, and note changes
+- Chronological activity timeline with user attribution
+- KPI cards for every pipeline stage
+- Conversion-rate, upcoming follow-up, and overdue follow-up analytics
+
+### User experience
+
 - Responsive React and Tailwind CSS interface
-- Redux Toolkit state management for dashboard and lead-detail workflows
-- Loading, empty, validation, and controlled error states
+- Redux Toolkit state management
+- Loading, empty, validation, success, and controlled error states
 - Refresh-safe React Router routes on Vercel
 
 ## Tech Stack
@@ -72,101 +80,26 @@ LeadFlow is a functional, deployed CRM portfolio project under active developmen
 | Layer | Technologies |
 | --- | --- |
 | Frontend | React, Vite, Redux Toolkit, React Router, Axios, Tailwind CSS, Lucide React |
-| Backend | Node.js, Express.js |
+| Backend | Node.js, Express.js, Nodemailer |
 | Database | MongoDB Atlas, Mongoose |
-| Authentication | JSON Web Token, bcryptjs |
+| Authentication | JSON Web Token, bcryptjs, Google Identity Services |
 | API | RESTful API |
 | Deployment | Vercel |
 
 ## Application Flow
 
 ```text
-Register / Login
-      ↓
-JWT authentication and protected routes
-      ↓
-Role-aware dashboard and lead access
-      ↓
-Create, search, filter, update, and delete leads
-      ↓
-Open lead details and manage interaction notes
-      ↓
-Automatically record changes in the activity timeline
-      ↓
-Track follow-ups, pipeline stages, and conversion metrics
-```
-
-## Project Structure
-
-```text
-LeadFlow/
-├── backend/
-│   ├── src/
-│   │   ├── app.js
-│   │   ├── server.js
-│   │   ├── config/
-│   │   │   └── db.js
-│   │   ├── controllers/
-│   │   │   ├── activityController.js
-│   │   │   ├── authController.js
-│   │   │   ├── dashboardController.js
-│   │   │   ├── leadController.js
-│   │   │   └── leadNoteController.js
-│   │   ├── middleware/
-│   │   │   └── authMiddleware.js
-│   │   ├── models/
-│   │   │   ├── Activity.js
-│   │   │   ├── Lead.js
-│   │   │   ├── LeadNote.js
-│   │   │   ├── Rank.js
-│   │   │   └── User.js
-│   │   ├── routes/
-│   │   │   ├── authRoutes.js
-│   │   │   ├── dashboardRoutes.js
-│   │   │   └── leadRoutes.js
-│   │   ├── services/
-│   │   │   └── activityService.js
-│   │   └── utils/
-│   │       ├── generateToken.js
-│   │       └── leadAccess.js
-│   ├── .env.example
-│   └── package.json
-├── frontend/
-│   ├── public/
-│   │   ├── leadflow-logo-white-bg.svg
-│   │   ├── leadflow-logo.svg
-│   │   └── leadflow-logo.png
-│   ├── src/
-│   │   ├── app/
-│   │   │   └── store.js
-│   │   ├── components/
-│   │   │   ├── LeadModal.jsx
-│   │   │   └── ProtectedRoute.jsx
-│   │   ├── features/
-│   │   │   ├── auth/
-│   │   │   │   └── authSlice.js
-│   │   │   ├── crm/
-│   │   │   │   └── crmSlice.js
-│   │   │   └── leads/
-│   │   │       └── leadDetailsSlice.js
-│   │   ├── pages/
-│   │   │   ├── DashboardPage.jsx
-│   │   │   ├── LeadDetailsPage.jsx
-│   │   │   ├── ProfilePage.jsx
-│   │   │   ├── LoginPage.jsx
-│   │   │   └── RegisterPage.jsx
-│   │   ├── services/
-│   │   │   └── api.js
-│   │   ├── App.jsx
-│   │   ├── index.css
-│   │   └── main.jsx
-│   ├── .env.example
-│   ├── index.html
-│   ├── package.json
-│   ├── vercel.json
-│   └── vite.config.js
-├── .gitignore
-└── README.md
+Register / Email Login / Google Login
+                 ↓
+      JWT-protected application
+                 ↓
+ Role-aware dashboard and record access
+          ↙                 ↘
+ Lead pipeline          Marketing plans
+      ↓                       ↓
+Notes and activities    Pitches and follow-ups
+          ↘                 ↙
+      Conversion workflow tracking
 ```
 
 ## API Endpoints
@@ -175,23 +108,26 @@ LeadFlow/
 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
-| POST | `/api/auth/register` | Public | Create a new account |
+| POST | `/api/auth/register` | Public | Create an account |
 | POST | `/api/auth/login` | Public | Log in and receive a JWT |
+| POST | `/api/auth/google` | Public | Register or log in with Google |
+| POST | `/api/auth/forgot-password` | Public | Request a password-reset email |
+| PATCH | `/api/auth/reset-password/:token` | Public | Reset a password with a valid token |
 | GET | `/api/auth/me` | Authenticated | Retrieve the current user |
 | PATCH | `/api/auth/profile` | Authenticated | Update the current user's name or email |
-| PATCH | `/api/auth/password` | Authenticated | Change password and issue a versioned JWT |
+| PATCH | `/api/auth/password` | Authenticated | Change password and issue a new JWT |
 
 ### Leads
 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
 | POST | `/api/leads` | Authenticated | Create a lead |
-| GET | `/api/leads` | Authenticated | List leads accessible to the user |
-| GET | `/api/leads/:id` | Authorized | Retrieve one lead and its details |
+| GET | `/api/leads` | Authenticated | List accessible leads |
+| GET | `/api/leads/:id` | Authorized | Retrieve one lead |
 | PATCH | `/api/leads/:id` | Authorized | Update a lead |
 | DELETE | `/api/leads/:id` | Authorized | Delete a lead and related records |
 
-Supported lead queries:
+Supported queries include `status` and `search`:
 
 ```text
 GET /api/leads?status=qualified
@@ -199,27 +135,33 @@ GET /api/leads?search=Amit
 GET /api/leads?status=new&search=Sharma
 ```
 
-### Lead notes
+### Marketing plans
 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
-| GET | `/api/leads/:id/notes` | Authorized | List a lead's interaction notes |
+| POST | `/api/plans` | Admin/Leader | Create a plan |
+| GET | `/api/plans` | Authenticated | Search, filter, and paginate accessible plans |
+| GET | `/api/plans/:id` | Authenticated | Retrieve an accessible plan |
+| PATCH | `/api/plans/:id` | Admin/Owner Leader | Update a plan |
+| DELETE | `/api/plans/:id` | Admin/Owner Leader | Archive a plan |
+
+```text
+GET /api/plans?status=active
+GET /api/plans?search=Social
+GET /api/plans?status=draft&page=1&limit=10
+```
+
+### Notes, activities, dashboard, and health
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/leads/:id/notes` | Authorized | List interaction notes |
 | POST | `/api/leads/:id/notes` | Authorized | Add an interaction note |
-| PATCH | `/api/leads/:id/notes/:noteId` | Note author/Admin/Leader | Edit a note |
-| DELETE | `/api/leads/:id/notes/:noteId` | Note author/Admin/Leader | Delete a note |
-
-### Lead activities
-
-| Method | Endpoint | Access | Purpose |
-| --- | --- | --- | --- |
-| GET | `/api/leads/:id/activities` | Authorized | Retrieve the latest lead activities |
-
-### Dashboard and health
-
-| Method | Endpoint | Access | Purpose |
-| --- | --- | --- | --- |
-| GET | `/api/dashboard/stats` | Authenticated | Retrieve dashboard KPI counts |
-| GET | `/api/health` | Public | Check whether the API is running |
+| PATCH | `/api/leads/:id/notes/:noteId` | Author/Admin/Leader | Edit a note |
+| DELETE | `/api/leads/:id/notes/:noteId` | Author/Admin/Leader | Delete a note |
+| GET | `/api/leads/:id/activities` | Authorized | Retrieve lead activity |
+| GET | `/api/dashboard/stats` | Authenticated | Retrieve dashboard KPIs |
+| GET | `/api/health` | Public | Check API health |
 
 ## Getting Started
 
@@ -227,18 +169,16 @@ GET /api/leads?status=new&search=Sharma
 
 - Node.js 20.19+
 - npm
-- MongoDB instance or MongoDB Atlas cluster
+- MongoDB or MongoDB Atlas
+- Google OAuth web client
+- SMTP-compatible email account for password-reset delivery
 
-### 1. Clone the repository
+### Installation
 
 ```bash
 git clone https://github.com/PankajPraja1/LeadFlow.git
 cd LeadFlow
-```
 
-### 2. Install dependencies
-
-```bash
 cd backend
 npm install
 
@@ -246,7 +186,7 @@ cd ../frontend
 npm install
 ```
 
-### 3. Configure backend environment variables
+### Backend environment
 
 Create `backend/.env`:
 
@@ -255,19 +195,23 @@ PORT=5000
 MONGODB_URI=mongodb://127.0.0.1:27017/leadflow
 JWT_SECRET=replace_with_a_long_random_secret
 CLIENT_URL=http://localhost:5173
+GOOGLE_CLIENT_ID=your_google_web_client_id
+EMAIL_USER=your_support_email
+EMAIL_APP_PASSWORD=your_email_app_password
 ```
 
-For MongoDB Atlas, replace `MONGODB_URI` with the Atlas connection string. Never commit the real `.env` file.
-
-### 4. Configure frontend environment variables
+### Frontend environment
 
 Create `frontend/.env`:
 
 ```env
 VITE_API_URL=http://localhost:5000/api
+VITE_GOOGLE_CLIENT_ID=your_google_web_client_id
 ```
 
-### 5. Run the application
+The Google Client ID is public browser configuration. Database, JWT, and email credentials must remain backend-only and must never use the `VITE_` prefix. Never commit real `.env` files.
+
+### Run locally
 
 Start the backend:
 
@@ -276,7 +220,7 @@ cd backend
 npm run dev
 ```
 
-Start the frontend in a second terminal:
+Start the frontend in another terminal:
 
 ```bash
 cd frontend
@@ -285,71 +229,59 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-## Available Scripts
-
-### Backend
-
-```bash
-npm run dev   # Start with Nodemon
-npm start     # Start with Node.js
-```
-
-### Frontend
-
-```bash
-npm run dev       # Start the Vite development server
-npm run build     # Create a production bundle
-npm run preview   # Preview the production bundle
-npm run lint      # Run ESLint
-```
-
 ## Authorization Model
 
 | Role | Current behaviour |
 | --- | --- |
-| Admin | Can access and manage all leads and notes |
-| Leader | Can access and manage all leads and notes |
-| Member | Can access assigned leads and manage notes they authored |
-| Viewer | Can access leads assigned to their account |
+| Admin | Manages all leads, notes, and marketing plans |
+| Leader | Manages team-accessible leads and notes; creates and manages owned plans |
+| Member | Accesses assigned leads and active plans; manages authored notes |
 
 New registrations receive the `member` role. System roles are assigned by the backend and cannot be selected through public registration.
 
 ## Security
 
-- Passwords are hashed before storage
 - Protected endpoints require a valid JWT
-- Authenticated requests verify that the associated user still exists and is active
-- Lead access is restricted through server-side role and ownership filters
-- Note editing and deletion require authorship or elevated role access
-- Invalid lead and note identifiers are validated before database operations
-- MongoDB and JWT credentials remain in backend environment variables
+- Google ID tokens are verified against the configured OAuth Client ID
+- Authenticated users must still exist and remain active
+- Lead, plan, and note access is enforced server-side
+- MongoDB IDs are validated before database operations
+- MongoDB, JWT, and email credentials remain backend-only
 - CORS restricts browser access to the configured frontend origin
-- Database connections are reused in the serverless deployment environment
-- Email changes require current-password verification
-- Password changes increment the user's token version
-- JWT token-version checks invalidate sessions created before a password change
+- Password changes increment the token version and invalidate older sessions
+- Reset tokens are random, hashed in storage, expire after 15 minutes, and become unusable after reset
+- Password-recovery responses do not reveal whether an email is registered
 
 ## Version History
 
+### v1.4.0
+
+- Added reusable marketing-plan management
+- Added pitches, target audiences, follow-up steps, and lifecycle statuses
+- Added plan search, filtering, pagination, and soft archival
+- Added Admin, Leader-owner, and Member permissions
+- Added a Redux-powered plan management interface
+
+### v1.3.0
+
+- Added Google authentication and profile-picture support
+- Added email-based forgot/reset-password workflow
+- Added expiring, single-use, hashed reset tokens
+- Added production password-reset email delivery
+
 ### v1.2.0
 
-- Added a dedicated profile and account-security page
-- Added secure name and email updates
-- Added current-password verification for email changes
-- Added authenticated password-change workflow
-- Added versioned JWT invalidation for older sessions
-- Improved authentication validation and Redux feedback states
+- Added profile and account-security pages
+- Added secure name, email, and password updates
+- Added current-password verification and versioned JWT invalidation
 
 ### v1.1.0
 
-- Added dedicated lead-detail pages
-- Added multiple interaction notes with edit/delete permissions
-- Added automatic lead and note activity tracking
-- Added chronological activity timeline with user attribution
-- Improved record-level authorization and invalid-ID handling
-- Added related-record cleanup when deleting leads
+- Added lead-detail pages and interaction notes
+- Added automatic activity tracking and a chronological timeline
+- Improved record-level authorization and related-record cleanup
 
-### v1.0.0
+### v1.0.0-mvp
 
 - Released the deployed CRM MVP
 - Added authentication, protected routes, lead CRUD, search, filters, follow-up dates, and dashboard analytics
@@ -357,13 +289,13 @@ New registrations receive the `member` role. System roles are assigned by the ba
 
 ## Roadmap
 
+- Shared dashboard layout and responsive application navigation
 - Dedicated upcoming and overdue follow-ups workspace
-- Reusable marketing-plan and outreach-sequence management
-- Team member management and lead assignment
+- Team member management, reporting hierarchy, and lead assignment
 - Automated email reminders and in-app notifications
 - AI-assisted lead summaries, prioritization, next actions, and outreach drafts
 - Real-time dashboard updates
-- Pagination, automated tests, API documentation, and CI/CD
+- Automated tests, API documentation, and CI/CD
 
 ## Author
 
