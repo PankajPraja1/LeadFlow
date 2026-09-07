@@ -11,6 +11,7 @@ import LeadDetailsPage from "./pages/LeadDetailsPage";
 import ProfilePage from "./pages/ProfilePage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import PlansPage from "./pages/PlansPage";
 
 // App component that sets up the routing for the application. It checks for a valid token and fetches the current user if the token exists. It defines routes for login, registration, dashboard, lead details, and profile pages, with protected routes for authenticated access.
 function App() {
@@ -48,7 +49,7 @@ function App() {
           <ProtectedRoute>
             <DashboardPage />
           </ProtectedRoute>
-          } /> // Defines the route for the dashboard page
+        } /> // Defines the route for the dashboard page
 
       <Route
         path="/leads/:leadId"
@@ -56,7 +57,7 @@ function App() {
           <ProtectedRoute>
             <LeadDetailsPage />
           </ProtectedRoute>
-          } /> // Defines the route for the lead details page
+        } /> // Defines the route for the lead details page
 
       <Route
         path="/profile"
@@ -66,6 +67,13 @@ function App() {
           </ProtectedRoute>
         } /> // Defines the route for the profile page
 
+      <Route path="/plans"
+        element={
+          <ProtectedRoute>
+            <PlansPage />
+          </ProtectedRoute>
+        } /> // Defines the route for the plans page
+
       <Route
         path="/"
         element={<Navigate to="/dashboard" replace />} /> // Redirects the root path to the dashboard page
@@ -73,7 +81,7 @@ function App() {
       <Route
         path="*"
         element={<Navigate to="/dashboard" replace />} /> // Redirects any undefined paths to the dashboard page
-      
+
     </Routes>
   );
 }
