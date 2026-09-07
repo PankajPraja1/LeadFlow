@@ -281,7 +281,7 @@ function LeadDetailsPage() {
 
     return (
         <div className="min-h-screen bg-slate-100">
-            <header className="border-b border-slate-200 bg-white">
+            <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
                     <button type="button" onClick={() => navigate("/dashboard")}
                         className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 hover:text-blue-700"

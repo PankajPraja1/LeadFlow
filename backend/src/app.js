@@ -8,6 +8,8 @@ const authRoutes = require("./routes/authRoutes");
 const leadRoutes = require("./routes/leadRoutes");
 // Import dashboard routes
 const dashboardRoutes = require("./routes/dashboardRoutes");
+// Import plan routes
+const planRoutes = require("./routes/planRoutes");
 
 const app = express();
 
@@ -46,5 +48,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/leads", leadRoutes);
 // Use dashboard routes
 app.use("/api/dashboard", dashboardRoutes);
+// Use plan routes
+app.use("/api/plans", planRoutes);
 
 module.exports = app;

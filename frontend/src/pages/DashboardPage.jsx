@@ -2,7 +2,7 @@ import { BarChart3, CheckCircle2, Clock3, Eye, LogOut, Pencil, Plus, Search, Tar
 
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 import { logout } from "../features/auth/authSlice";
 import { fetchDashboardStats, fetchLeads, createLead, deleteLead, updateLead } from "../features/crm/crmSlice";
@@ -155,7 +155,7 @@ function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
           <div className="flex items-center gap-3">
             <img src="/leadflow-logo.svg" alt="LeadFlow logo" className="h-10 w-10" />
@@ -214,15 +214,21 @@ function DashboardPage() {
       </header>
 
       <main className="mx-auto max-w-7xl px-5 py-8">
-        <section>
-          <h2 className="text-2xl font-bold text-slate-900">
-            Dashboard
-          </h2>
+        <div className="flex justify-between items-center gap-4 flex-col sm:flex-row">
+          <section>
+            <h2 className="text-2xl font-bold text-slate-900">
+              Dashboard
+            </h2>
 
-          <p className="mt-1 text-slate-500">
-            Monitor your lead pipeline and follow-ups.
-          </p>
-        </section>
+            <p className="mt-1 text-slate-500">
+              Monitor your lead pipeline and follow-ups.
+            </p>
+          </section>
+
+          <Link to="/plans" className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-blue-700 px-4 py-2.5 font-semibold text-blue-700 hover:bg-blue-50">
+            Marketing Plans
+          </Link>
+        </div>
 
         {error && (
           <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
