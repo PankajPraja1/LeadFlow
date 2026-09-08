@@ -118,7 +118,7 @@ function PlansPage() {
     }; // Handle archiving a plan after user confirmation, and refresh the plans list afterward
 
     return (
-        <main className="min-h-screen bg-slate-100 p-4 sm:p-6 lg:p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
             <div className="mx-auto max-w-7xl">
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -298,7 +298,14 @@ function PlansPage() {
                 )}
             </div>
 
-            <PlanFormModal isOpen={isModalOpen} onClose={handleCloseModal} plan={editingPlan} />
+            {isModalOpen && (
+                <PlanFormModal
+                    key={editingPlan?._id || "new-plan"}
+                    isOpen
+                    onClose={handleCloseModal}
+                    plan={editingPlan}
+                />
+            )}
         </main>
     );
 }

@@ -2,16 +2,18 @@ import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 
+import AppLayout from "./components/layout/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { getCurrentUser } from "./features/auth/authSlice";
+
 import DashboardPage from "./pages/DashboardPage";
-import RegisterPage from "./pages/RegisterPage";
-import LoginPage from "./pages/LoginPage";
-import LeadDetailsPage from "./pages/LeadDetailsPage";
-import ProfilePage from "./pages/ProfilePage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
+import LeadDetailsPage from "./pages/LeadDetailsPage";
+import LoginPage from "./pages/LoginPage";
 import PlansPage from "./pages/PlansPage";
+import ProfilePage from "./pages/ProfilePage";
+import RegisterPage from "./pages/RegisterPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 // App component that sets up the routing for the application. It checks for a valid token and fetches the current user if the token exists. It defines routes for login, registration, dashboard, lead details, and profile pages, with protected routes for authenticated access.
 function App() {
@@ -27,60 +29,59 @@ function App() {
 
   return (
     <Routes>
+      {/* Public routes */}
       <Route
         path="/login"
-        element={<LoginPage />} /> // Defines the route for the login page
+        element={<LoginPage />} />
 
       <Route
         path="/register"
-        element={<RegisterPage />} /> // Defines the route for the registration page
+        element={<RegisterPage />} />
 
       <Route
         path="/forgot-password"
-        element={<ForgotPasswordPage />} /> // Defines the route for the forgot password page
+        element={<ForgotPasswordPage />} />
 
       <Route
         path="/reset-password/:token"
-        element={<ResetPasswordPage />} /> // Defines the route for the reset password page
+        element={<ResetPasswordPage />} />
 
+      {/* Shared protected layout */}
       <Route
-        path="/dashboard"
         element={
           <ProtectedRoute>
-            <DashboardPage />
+            <AppLayout />
           </ProtectedRoute>
-        } /> // Defines the route for the dashboard page
+        }
+      >
+        <Route
+          path="/dashboard"
+          element={<DashboardPage />}
+        />
 
-      <Route
-        path="/leads/:leadId"
-        element={
-          <ProtectedRoute>
-            <LeadDetailsPage />
-          </ProtectedRoute>
-        } /> // Defines the route for the lead details page
+        <Route
+          path="/leads/:leadId"
+          element={<LeadDetailsPage />}
+        />
 
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <ProfilePage />
-          </ProtectedRoute>
-        } /> // Defines the route for the profile page
+        <Route
+          path="/plans"
+          element={<PlansPage />}
+        />
 
-      <Route path="/plans"
-        element={
-          <ProtectedRoute>
-            <PlansPage />
-          </ProtectedRoute>
-        } /> // Defines the route for the plans page
+        <Route
+          path="/profile"
+          element={<ProfilePage />}
+        />
+      </Route>
 
       <Route
         path="/"
-        element={<Navigate to="/dashboard" replace />} /> // Redirects the root path to the dashboard page
+        element={<Navigate to="/dashboard" replace />} />
 
       <Route
         path="*"
-        element={<Navigate to="/dashboard" replace />} /> // Redirects any undefined paths to the dashboard page
+        element={<Navigate to="/dashboard" replace />} />
 
     </Routes>
   );

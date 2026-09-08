@@ -49,17 +49,59 @@ export const loginUser = createAsyncThunk("auth/login", async (credentials, thun
 });
 
 // Exported async thunk for fetching the current authenticated user
-export const getCurrentUser = createAsyncThunk("auth/getCurrentUser", async (_, thunkAPI) => {
-  try {
-    const response = await api.get("/auth/me");
+export const getCurrentUser = createAsyncThunk(
+  "auth/getCurrentUser",
+  async (_, thunkAPI) => {
+    const tokenAtStart = thunkAPI.getState().auth.token;
 
-    return response.data.user;
-  } catch (error) {
-    localStorage.removeItem("leadflow_token");
+    try {
+      const response = await api.get("/auth/me", {
+        headers: {
+          Authorization: `Bearer ${tokenAtStart}`,
+        },
+      });
 
-    return thunkAPI.rejectWithValue(getErrorMessage(error, "Unable to authenticate user"));
+      if (!response.data.user) {
+        return thunkAPI.rejectWithValue({
+          message: "The server returned an invalid user response",
+          sessionInvalid: false,
+        });
+      }
+
+      return response.data.user;
+    } catch (error) {
+      const status = error.response?.status;
+
+      const sessionInvalid =
+        status === 401 || status === 403;
+
+      const currentAuth = thunkAPI.getState().auth;
+
+      // Only the current session check may remove its token.
+      if (sessionInvalid &&
+        currentAuth.authRequestId === thunkAPI.requestId &&
+        currentAuth.token === tokenAtStart
+      ) {
+        localStorage.removeItem("leadflow_token");
+      }
+
+      return thunkAPI.rejectWithValue({
+        message: getErrorMessage(
+          error,
+          "Unable to verify your session. Please try again."
+        ),
+        sessionInvalid,
+      });
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const { token, authRequestId } = getState().auth;
+
+      return Boolean(token) && !authRequestId;
+    },
   }
-});
+);
 
 // Exported async thunk for updating the user's profile
 export const updateUserProfile = createAsyncThunk("auth/updateUserProfile", async (profileData, thunkAPI) => {
@@ -96,6 +138,10 @@ const authSlice = createSlice({
     isLoading: false,
     isCheckingAuth: Boolean(savedToken),
 
+    authRequestId: null,
+    authRequestToken: null,
+    authCheckError: null,
+
     isUpdatingProfile: false,
     isChangingPassword: false,
 
@@ -113,6 +159,9 @@ const authSlice = createSlice({
       state.token = null;
       state.isLoading = false;
       state.isCheckingAuth = false;
+      state.authRequestId = null;
+      state.authRequestToken = null;
+      state.authCheckError = null;
       state.isUpdatingProfile = false;
       state.isChangingPassword = false;
       state.error = null;
@@ -141,6 +190,11 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.token = action.payload.token;
         state.user = action.payload.user;
+
+        state.isCheckingAuth = false;
+        state.authRequestId = null;
+        state.authRequestToken = null;
+        state.authCheckError = null;
       })
       .addCase(googleLogin.rejected, (state, action) => {
         state.isLoading = false;
@@ -154,6 +208,11 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.token = action.payload.token;
         state.user = action.payload.user;
+
+        state.isCheckingAuth = false;
+        state.authRequestId = null;
+        state.authRequestToken = null;
+        state.authCheckError = null;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;
@@ -167,23 +226,62 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.token = action.payload.token;
         state.user = action.payload.user;
+
+        state.isCheckingAuth = false;
+        state.authRequestId = null;
+        state.authRequestToken = null;
+        state.authCheckError = null;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload || "Unable to log in";
       })
-      .addCase(getCurrentUser.pending, (state) => {
+      .addCase(getCurrentUser.pending, (state, action) => {
         state.isCheckingAuth = true;
+        state.authCheckError = null;
+        state.authRequestId = action.meta.requestId;
+        state.authRequestToken = state.token;
       })
+
       .addCase(getCurrentUser.fulfilled, (state, action) => {
+        if (
+          state.authRequestId !== action.meta.requestId ||
+          state.authRequestToken !== state.token
+        ) {
+          return;
+        }
+
         state.isCheckingAuth = false;
+        state.authRequestId = null;
+        state.authRequestToken = null;
+        state.authCheckError = null;
         state.user = action.payload;
       })
+
       .addCase(getCurrentUser.rejected, (state, action) => {
+        if (
+          state.authRequestId !== action.meta.requestId ||
+          state.authRequestToken !== state.token
+        ) {
+          return;
+        }
+
         state.isCheckingAuth = false;
-        state.user = null;
-        state.token = null;
-        state.error = action.payload || "Unable to authenticate user";
+        state.authRequestId = null;
+        state.authRequestToken = null;
+
+        const message =
+          action.payload?.message ||
+          "Unable to verify your session. Please try again.";
+
+        if (action.payload?.sessionInvalid) {
+          state.user = null;
+          state.token = null;
+          state.authCheckError = null;
+          state.error = message;
+        } else {
+          state.authCheckError = message;
+        }
       })
       .addCase(updateUserProfile.pending, (state) => {
         state.isUpdatingProfile = true;
@@ -209,6 +307,11 @@ const authSlice = createSlice({
         state.token = action.payload.token;
         state.user = action.payload.user;
         state.profileMessage = action.payload.message;
+
+        state.isCheckingAuth = false;
+        state.authRequestId = null;
+        state.authRequestToken = null;
+        state.authCheckError = null;
       })
       .addCase(changeUserPassword.rejected, (state, action) => {
         state.isChangingPassword = false;

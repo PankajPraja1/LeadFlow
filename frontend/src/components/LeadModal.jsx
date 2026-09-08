@@ -1,16 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { X } from "lucide-react";
 
-const emptyForm = {
-    name: "",
-    email: "",
-    phone: "",
-    source: "Other",
-    status: "new",
-    notes: "",
-    nextFollowUp: "",
-};
+const getInitialFormData = (lead) => ({
+    name: lead?.name || "",
+    email: lead?.email || "",
+    phone: lead?.phone || "",
+    source: lead?.source || "Other",
+    status: lead?.status || "new",
+    notes: lead?.notes || "",
+    nextFollowUp: lead?.nextFollowUp
+        ? new Date(lead.nextFollowUp)
+            .toISOString()
+            .split("T")[0]
+        : "",
+});
 
 function LeadModal({
     isOpen,
@@ -18,25 +22,11 @@ function LeadModal({
     isSaving,
     error,
     onClose,
-    onSave,
-}) {
-    const [formData, setFormData] = useState(emptyForm);
+    onSave, }) {
 
-    useEffect(() => {
-        if (lead) {
-            setFormData({
-                name: lead.name || "",
-                email: lead.email || "",
-                phone: lead.phone || "",
-                source: lead.source || "Other",
-                status: lead.status || "new",
-                notes: lead.notes || "",
-                nextFollowUp: lead.nextFollowUp ? lead.nextFollowUp.split("T")[0] : "",
-            });
-        } else {
-            setFormData(emptyForm);
-        }
-    }, [lead, isOpen]);
+    const [formData, setFormData] = useState(
+        () => getInitialFormData(lead)
+    );
 
     if (!isOpen) {
         return null;

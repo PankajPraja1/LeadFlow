@@ -280,27 +280,19 @@ function LeadDetailsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-100">
-            <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
-                <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-                    <button type="button" onClick={() => navigate("/dashboard")}
-                        className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 hover:text-blue-700"
-                    >
-                        <ArrowLeft size={18} />
-                        Back to dashboard
-                    </button>
+        <div>
+            {/* <header className="border-b border-slate-200 bg-white"> */}
+            <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
+                <button type="button" onClick={() => navigate("/dashboard")}
+                    className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 hover:text-blue-700"
+                >
+                    <ArrowLeft size={18} />
+                    Back to dashboard
+                </button>
+            </div>
+            {/* </header> */}
 
-                    <div className="flex items-center gap-3">
-                        <img src="/leadflow-logo.svg" alt="LeadFlow logo" className="h-9 w-9" />
-
-                        <span className="hidden font-bold text-slate-900 sm:inline">
-                            LeadFlow
-                        </span>
-                    </div>
-                </div>
-            </header>
-
-            <main className="mx-auto max-w-7xl px-5 py-8">
+            <main className="mx-auto max-w-7xl px-5 py-8 pt-2">
                 {(detailsError || crmError) && (
                     <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                         {detailsError || crmError}

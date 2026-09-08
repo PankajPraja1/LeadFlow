@@ -1,10 +1,9 @@
-import { BarChart3, CheckCircle2, Clock3, Eye, LogOut, Pencil, Plus, Search, Target, Trash2, UserPlus, Users, UserRound } from "lucide-react";
+import { CheckCircle2, Clock3, Eye, Pencil, Plus, Search, Target, Trash2, UserPlus, Users } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-import { logout } from "../features/auth/authSlice";
 import { fetchDashboardStats, fetchLeads, createLead, deleteLead, updateLead } from "../features/crm/crmSlice";
 import LeadModal from "../components/LeadModal";
 
@@ -26,8 +25,6 @@ function DashboardPage() {
 
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
-
-  const { user } = useSelector((state) => state.auth);
 
   const { leads, stats, isLoadingLeads, isLoadingStats, isSavingLead, error } = useSelector((state) => state.crm);
 
@@ -120,11 +117,6 @@ function DashboardPage() {
     }
   };
 
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate("/login");
-  };
-
   // Define the statistics cards to be displayed on the dashboard, each with a label, value, icon, and styling for the icon
   const statCards = [
     {
@@ -154,81 +146,18 @@ function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3">
-            <img src="/leadflow-logo.svg" alt="LeadFlow logo" className="h-10 w-10" />
-
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">
-                LeadFlow
-              </h1>
-
-              <p className="text-xs text-slate-500">
-                Lead Management Dashboard
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              {user?.profilePicture ? (
-                <img src={user.profilePicture} alt={`${user.name || "User"} profile`} referrerPolicy="no-referrer"
-                  className="h-10 w-10 rounded-full border border-slate-200 object-cover"
-                />
-              ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-                  <UserRound size={20} />
-                </div>
-              )}
-
-              <div className="hidden text-right sm:block">
-                <p className="text-sm font-semibold text-slate-800">
-                  {user?.name}
-                </p>
-
-                <p className="text-xs capitalize text-slate-500">
-                  {user?.systemRole}
-                </p>
-              </div>
-            </div>
-
-            <button type="button" onClick={() => navigate("/profile")}
-              className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              <UserRound size={17} />
-              <span className="hidden sm:inline">
-                Profile
-              </span>
-            </button>
-
-            <button onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
-            >
-              <LogOut size={17} />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
-          </div>
-        </div>
-      </header>
+    <div>
 
       <main className="mx-auto max-w-7xl px-5 py-8">
-        <div className="flex justify-between items-center gap-4 flex-col sm:flex-row">
-          <section>
-            <h2 className="text-2xl font-bold text-slate-900">
-              Dashboard
-            </h2>
+        <section>
+          <h2 className="text-2xl font-bold text-slate-900">
+            Dashboard
+          </h2>
 
-            <p className="mt-1 text-slate-500">
-              Monitor your lead pipeline and follow-ups.
-            </p>
-          </section>
-
-          <Link to="/plans" className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-blue-700 px-4 py-2.5 font-semibold text-blue-700 hover:bg-blue-50">
-            Marketing Plans
-          </Link>
-        </div>
+          <p className="mt-1 text-slate-500">
+            Monitor your lead pipeline and follow-ups.
+          </p>
+        </section>
 
         {error && (
           <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -437,16 +366,18 @@ function DashboardPage() {
         </section>
       </main>
 
-      <LeadModal
-        isOpen={isLeadModalOpen}
-        lead={editingLead}
-        isSaving={isSavingLead}
-        error={error}
-        onClose={closeLeadModal}
-        onSave={handleSaveLead}
-      />
+      {isLeadModalOpen && (
+        <LeadModal
+          key={editingLead?._id || "new-lead"}
+          isOpen
+          lead={editingLead}
+          onClose={closeLeadModal}
+          onSave={handleSaveLead}
+          isSaving={isSavingLead}
+        />
+      )}
     </div>
-  ); // Render the dashboard page with header, statistics cards, lead list, and modals for creating/editing leads
+  ); // Render the dashboard page with statistics cards, lead list and modals for creating/editing leads
 }
 
 export default DashboardPage;
