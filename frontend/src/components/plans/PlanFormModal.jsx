@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -13,35 +13,34 @@ const emptyForm = {
     status: "draft",
 };
 
+const getInitialForm = (plan) => {
+    if (!plan) {
+        return { ...emptyForm };
+    }
+
+    return {
+        name: plan.name || "",
+        description: plan.description || "",
+        targetAudience: plan.targetAudience || "",
+        pitch: plan.pitch || "",
+        followUpSteps:
+            plan.followUpSteps?.join("\n") || "",
+        status: plan.status || "draft",
+    };
+};
+
 // PlanFormModal component
 function PlanFormModal({ isOpen, onClose, plan = null, }) {
     const dispatch = useDispatch();
 
     const { isSubmitting } = useSelector((state) => state.plans);
 
-    const [formData, setFormData] = useState(emptyForm);
+    const [formData, setFormData] = useState(
+        () => getInitialForm(plan)
+    );
     const [localError, setLocalError] = useState("");
 
     const isEditing = Boolean(plan);
-
-    useEffect(() => {
-        if (!isOpen) return;
-
-        if (plan) {
-            setFormData({
-                name: plan.name || "",
-                description: plan.description || "",
-                targetAudience: plan.targetAudience || "",
-                pitch: plan.pitch || "",
-                followUpSteps: plan.followUpSteps?.join("\n") || "",
-                status: plan.status || "draft",
-            });
-        } else {
-            setFormData(emptyForm);
-        }
-
-        setLocalError("");
-    }, [isOpen, plan]); // Reset form data and error when modal opens or plan changes
 
     if (!isOpen) return null;
 

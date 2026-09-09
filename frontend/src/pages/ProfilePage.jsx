@@ -1,8 +1,7 @@
-import { ArrowLeft, CalendarDays, KeyRound, LogOut, Mail, Save, ShieldCheck, UserRound, } from "lucide-react";
+import { CalendarDays, KeyRound, Mail, Save, ShieldCheck, UserRound, } from "lucide-react";
 import { useEffect, useState, } from "react";
 import { useDispatch, useSelector, } from "react-redux";
-import { useNavigate, } from "react-router-dom";
-import { changeUserPassword, clearProfileFeedback, logout, updateUserProfile, } from "../features/auth/authSlice";
+import { changeUserPassword, clearProfileFeedback, updateUserProfile, } from "../features/auth/authSlice";
 
 const emptyPasswordForm = {
     currentPassword: "",
@@ -26,35 +25,26 @@ const formatDate = (date) => {
 // ProfilePage component allows users to view and update their profile information and change their password.
 function ProfilePage() {
     const dispatch = useDispatch();
-    const navigate = useNavigate();
     // ------------------------------------------
     const {
         user,
         isUpdatingProfile,
         isChangingPassword,
         profileError,
-        profileMessage,
-    } = useSelector((state) => state.auth);
+        profileMessage, } = useSelector((state) => state.auth);
 
-    const [profileForm, setProfileForm,] = useState({
-        name: "",
-        email: "",
-        currentPassword: "",
-    });
+    const [profileEdits, setProfileEdits] = useState({});
 
     const [passwordForm, setPasswordForm,] = useState(emptyPasswordForm);
 
     const [validationError, setValidationError,] = useState("");
 
-    useEffect(() => {
-        if (user) {
-            setProfileForm({
-                name: user.name || "",
-                email: user.email || "",
-                currentPassword: "",
-            });
-        }
-    }, [user]); // Update form fields when user data changes
+    const profileForm = {
+        name: profileEdits.name ?? user?.name ?? "",
+        email: profileEdits.email ?? user?.email ?? "",
+        currentPassword:
+            profileEdits.currentPassword ?? "",
+    };
 
     useEffect(() => {
         dispatch(clearProfileFeedback());
@@ -80,14 +70,6 @@ function ProfilePage() {
 
     const emailChanged = normalizedEmail !== user.email; // Check if the email has been changed
 
-    const initials = user.name
-        .split(" ")
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0])
-        .join("")
-        .toUpperCase(); // Generate initials from the user's name
-
     const clearFeedback = () => {
         setValidationError("");
         dispatch(clearProfileFeedback());
@@ -98,7 +80,10 @@ function ProfilePage() {
 
         clearFeedback();
 
-        setProfileForm((currentForm) => ({ ...currentForm, [name]: value, }));
+        setProfileEdits((currentEdits) => ({
+            ...currentEdits,
+            [name]: value,
+        }));
     }; // Handle changes in the profile form fields
 
     const handlePasswordChange = (event) => {
@@ -138,7 +123,7 @@ function ProfilePage() {
                 }),
             })).unwrap(); // Update the user profile and handle any errors
 
-            setProfileForm((currentForm) => ({ ...currentForm, currentPassword: "", })); // Clear the current password field after successful update
+            setProfileEdits({});
         } catch {
             // Redux displays the API error.
         }
@@ -172,32 +157,8 @@ function ProfilePage() {
         }
     }; // Handle password form submission
 
-    const handleLogout = () => {
-        dispatch(logout());
-        navigate("/login");
-    }; // Handle user logout and redirect to the login page
-
     return (
-        <div className="min-h-screen bg-slate-100">
-            <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
-                <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-                    <button type="button" onClick={() => navigate("/dashboard")}
-                        className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 hover:text-blue-700"
-                    >
-                        <ArrowLeft size={18} />
-                        Back to dashboard
-                    </button>
-
-                    <div className="flex items-center gap-3">
-                        <img src="/leadflow-logo.svg" alt="LeadFlow logo" className="h-9 w-9" />
-
-                        <span className="hidden font-bold text-slate-900 sm:inline">
-                            LeadFlow
-                        </span>
-                    </div>
-                </div>
-            </header>
-
+        <div>
             <main className="mx-auto max-w-6xl px-5 py-8">
                 <section>
                     <h1 className="text-3xl font-bold text-slate-900">
@@ -284,12 +245,6 @@ function ProfilePage() {
                                 </div>
                             </div>
 
-                            <button type="button" onClick={handleLogout}
-                                className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"
-                            >
-                                <LogOut size={17} />
-                                Log out
-                            </button>
                         </section>
                     </aside>
 
