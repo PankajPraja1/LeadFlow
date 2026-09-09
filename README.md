@@ -1,5 +1,7 @@
 <div align="center">
+
   <img src="frontend/public/leadflow-logo-white-bg.svg" alt="LeadFlow logo" width="90" />
+
   <h1>LeadFlow</h1>
 
   <p>A deployed, full-stack CRM for secure lead management, reusable marketing plans, follow-ups, pipeline analytics, and activity tracking.</p>
@@ -19,9 +21,11 @@ The application uses a React and Redux Toolkit frontend, an Express REST API, Mo
 
 ## Project Status
 
-**Current release: v1.4.0**
+**Version: v1.5.0 — shared app layout and session recovery.**
 
 Authentication, account security, lead management, pipeline analytics, follow-up scheduling, lead-detail pages, interaction notes, activity history, and marketing-plan management are implemented and deployed.
+
+The shared layout and session-recovery changes are merged into `main`. Local checks and production navigation/authentication checks have passed. The roadmap below identifies planned features separately from implemented functionality.
 
 ## Features
 
@@ -34,6 +38,8 @@ Authentication, account security, lead management, pipeline analytics, follow-up
 - JWT-protected frontend and API routes
 - Role-based access using `admin`, `leader`, and `member`
 - Active-user checks and persistent authenticated sessions
+- Session verification with retry after temporary API failures
+- Recovery from invalid sessions without treating temporary network errors as logout
 - Secure name, email, and password updates
 - Versioned JWT sessions that invalidate older tokens after password changes
 - Email-based password recovery with single-use, SHA-256-hashed tokens
@@ -71,6 +77,10 @@ Authentication, account security, lead management, pipeline analytics, follow-up
 ### User experience
 
 - Responsive React and Tailwind CSS interface
+- Shared protected layout for Dashboard and Leads, Marketing Plans, and Profile
+- Responsive desktop navigation and a mobile navigation drawer
+- Keyboard focus handling and focus restoration for the mobile drawer
+- Consistent page headings and shared profile/logout controls
 - Redux Toolkit state management
 - Loading, empty, validation, success, and controlled error states
 - Refresh-safe React Router routes on Vercel
@@ -88,19 +98,7 @@ Authentication, account security, lead management, pipeline analytics, follow-up
 
 ## Application Flow
 
-```text
-Register / Email Login / Google Login
-                 ↓
-      JWT-protected application
-                 ↓
- Role-aware dashboard and record access
-          ↙                 ↘
- Lead pipeline          Marketing plans
-      ↓                       ↓
-Notes and activities    Pitches and follow-ups
-          ↘                 ↙
-      Conversion workflow tracking
-```
+After registration or sign-in, users enter the protected shared layout. They can manage leads, open a lead's notes and activity history, browse marketing-plan templates, and update their profile. Leads hold the next follow-up date, while plans store reusable pitches and follow-up steps. Tracking each person's progress through a plan is planned work.
 
 ## API Endpoints
 
@@ -234,10 +232,12 @@ Open `http://localhost:5173`.
 | Role | Current behaviour |
 | --- | --- |
 | Admin | Manages all leads, notes, and marketing plans |
-| Leader | Manages team-accessible leads and notes; creates and manages owned plans |
+| Leader | Has broad lead access under the current access helper; creates and manages owned plans |
 | Member | Accesses assigned leads and active plans; manages authored notes |
 
 New registrations receive the `member` role. System roles are assigned by the backend and cannot be selected through public registration.
+
+Access based on actual team membership and sponsor relationships is planned. The current shared-lead permission does not represent an implemented upline/downline hierarchy. The `viewer` value exists in the User model; complete read-only endpoint coverage remains part of the access-control review.
 
 ## Security
 
@@ -250,9 +250,18 @@ New registrations receive the `member` role. System roles are assigned by the ba
 - CORS restricts browser access to the configured frontend origin
 - Password changes increment the token version and invalidate older sessions
 - Reset tokens are random, hashed in storage, expire after 15 minutes, and become unusable after reset
-- Password-recovery responses do not reveal whether an email is registered
+- Successful password-recovery requests use a generic response message
 
 ## Version History
+
+### v1.5.0
+
+- Added a shared protected application layout and responsive navigation
+- Added mobile drawer keyboard focus handling and focus restoration
+- Consolidated page headings, profile access, and logout controls
+- Added session verification and retry after temporary API failures
+- Improved invalid-session recovery and handling of stale authentication responses
+- Updated form initialization to avoid effect-driven state resets
 
 ### v1.4.0
 
@@ -289,12 +298,16 @@ New registrations receive the `member` role. System roles are assigned by the ba
 
 ## Roadmap
 
-- Shared dashboard layout and responsive application navigation
-- Dedicated upcoming and overdue follow-ups workspace
-- Team member management, reporting hierarchy, and lead assignment
+- Registration email ownership verification and verified email changes
+- Dedicated Follow-ups workspace with completion history and personal tasks
 - Automated email reminders and in-app notifications
+- Program-specific ranks, memberships, sponsor trees, and scoped lead assignments
+- Account archival with preserved activity attribution and ownership reassignment
+- Conversion and onboarding plans with individual progress tracking
+- Shared learning resources, scheduled classes, and member development plans
 - AI-assisted lead summaries, prioritization, next actions, and outreach drafts
-- Real-time dashboard updates
+- Real-time updates and team/direct chat
+- Advanced analytics, broader activity views, and application preferences
 - Automated tests, API documentation, and CI/CD
 
 ## Author
