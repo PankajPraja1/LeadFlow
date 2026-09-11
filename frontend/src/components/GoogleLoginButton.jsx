@@ -15,6 +15,8 @@ function GoogleLoginButton() {
     const [googleError, setGoogleError] = useState("");
 
     const handleGoogleSuccess = async (credentialResponse) => {
+        if (isLoading) return;
+
         if (!credentialResponse.credential) {
             setGoogleError("Google did not return a valid credential");
             return;
@@ -23,15 +25,28 @@ function GoogleLoginButton() {
         try {
             setGoogleError("");
 
-            await dispatch(googleLogin(credentialResponse.credential)).unwrap();
+            await dispatch(
+                googleLogin(credentialResponse.credential)
+            ).unwrap();
 
             navigate("/dashboard", {
                 replace: true,
             });
-        } catch {
-            // Redux displays the backend error.
+        } catch (failure) {
+            if (failure?.requiresEmailVerification) {
+                navigate("/verify-email", {
+                    replace: true,
+                    state: {
+                        email: failure.email,
+                        message: failure.message,
+                    },
+                });
+            }
+
+            // Other backend errors are displayed through Redux.
         }
-    }; // handleGoogleSuccess handles the successful Google login response. It dispatches the googleLogin action with the received credential and navigates to the dashboard on success. If an error occurs, it is handled by Redux.
+    };
+
 
     return (
         <div className="space-y-2">

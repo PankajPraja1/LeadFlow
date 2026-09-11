@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams, } from "react-router-dom";
 import { Eye, EyeOff, LockKeyhole, } from "lucide-react";
+import { useDispatch } from "react-redux";
+import { logout } from "../features/auth/authSlice";
 
 import api from "../services/api";
 
@@ -8,6 +10,7 @@ import api from "../services/api";
 function ResetPasswordPage() {
     const { token } = useParams();
     const navigate = useNavigate();
+    const dispatch = useDispatch();
 
     const [formData, setFormData] = useState({
         password: "",
@@ -51,7 +54,21 @@ function ResetPasswordPage() {
 
             const response = await api.patch(`/auth/reset-password/${token}`, formData);
 
-            setMessage(response.data.message);
+            if (response.data?.success !== true) {
+                throw new Error("Unexpected password-reset response");
+            }
+
+            dispatch(logout());
+
+            setFormData({
+                password: "",
+                confirmPassword: "",
+            });
+
+            setMessage(
+                response.data.message ||
+                "Password reset successfully. Please sign in."
+            );
 
             setTimeout(() => {
                 navigate("/login", {

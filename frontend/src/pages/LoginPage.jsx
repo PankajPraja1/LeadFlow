@@ -37,13 +37,28 @@ function LoginPage() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
+        if (isLoading) return;
+
         try {
             await dispatch(loginUser(formData)).unwrap();
-            navigate("/dashboard");
-        } catch {
-            // Reduxing stores and displays the API error.
-            // No need to handle it here.
-            // I will just leave this catch block empty for now.
+
+            navigate("/dashboard", {
+                replace: true,
+            });
+        } catch (failure) {
+            if (failure?.requiresEmailVerification) {
+                navigate("/verify-email", {
+                    replace: true,
+                    state: {
+                        email:
+                            failure.email ||
+                            formData.email.trim().toLowerCase(),
+                        message: failure.message,
+                    },
+                });
+            }
+
+            // Wrong passwords and other errors remain on this page.
         }
     };
 
@@ -143,6 +158,16 @@ function LoginPage() {
                             {isLoading ? "Signing in..." : "Sign in"}
                         </button>
                     </form>
+
+                    <Link
+                        to="/verify-email"
+                        state={{
+                            email: formData.email.trim().toLowerCase(),
+                        }}
+                        className="mt-4 block text-center text-sm font-semibold text-blue-700 hover:text-blue-800"
+                    >
+                        Resend verification email
+                    </Link>
 
                     <div className="my-6 flex items-center gap-3">
                         <div className="h-px flex-1 bg-slate-200" />

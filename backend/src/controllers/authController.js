@@ -1,626 +1,477 @@
-const { OAuth2Client, } = require("google-auth-library"); // Import the Google OAuth2 client
+const { OAuth2Client } = require("google-auth-library");
+const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
-const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
+const {
+  normalizeEmail, isValidEmail, isValidName, passwordError, isValidToken,
+  hashToken, escapeHtml, buildClientLink, versionFilter, logAuthError,
+} = require("../utils/authValidation");
+const {
+  createEmailVerificationService, clearVerification, clearPasswordReset,
+  RESEND_COOLDOWN_MS,
+} = require("../services/emailVerificationService");
 
-// Initialize the Google OAuth2 client with the client ID from environment variables
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const verification = createEmailVerificationService({ User, sendEmail });
+const RANK_FIELDS = "name level description";
 
-// Format user data for response
-const formatUser = (user) => {
-  return {
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    systemRole: user.systemRole,
-    rank: user.rank,
-    profilePicture: user.profilePicture || "",
-    isActive: user.isActive,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  };
-};
+const formatUser = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  systemRole: user.systemRole,
+  rank: user.rank,
+  profilePicture: user.profilePicture || "",
+  isActive: user.isActive,
+  isEmailVerified: user.isEmailVerified === true,
+  emailVerifiedAt: user.emailVerifiedAt || null,
+  pendingEmail: user.pendingEmail || null,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+});
 
-// Send validation error response
-const sendValidationError = (error, res) => {
-  const messages = Object.values(error.errors).map((validationError) => validationError.message);
+const fail = (res, status, message, code) => res.status(status).json({
+  success: false, message, ...(code ? { code } : {}),
+});
 
-  return res.status(400).json({
-    success: false,
-    message: messages[0] || "Account validation failed",
-    errors: messages,
-  });
-};
-
-// Registration, login, profile update, and password change functions
-const register = async (req, res) => {
-  try {
-    const { name, email, password, } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Name, email, and password are required",
-      });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    const existingUser = await User.findOne({
-      email: normalizedEmail,
-    });
-
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        message: "An account with this email already exists",
-      });
-    }
-
-    const user = await User.create({
-      name: name.trim(),
-      email: normalizedEmail,
-      password,
-    });
-
-    const token = generateToken(user._id, user.tokenVersion ?? 0);
-
-    return res.status(201).json({
-      success: true,
-      message: "Account created successfully",
-      token,
-      user: formatUser(user),
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-
-    if (error.name === "ValidationError") {
-      return sendValidationError(error, res);
-    }
-
-    if (error.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message: "An account with this email already exists",
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to create account",
-    });
+const accountError = (res, error, fallback) => {
+  if (error.name === "ValidationError") {
+    const messages = Object.values(error.errors).map((item) => item.message);
+    return res.status(400).json({ success: false, message: messages[0] || "Account validation failed", errors: messages });
   }
-};
-
-// Login User 
-const login = async (req, res) => {
-  try {
-    const { email, password, } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required",
-      });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    const user = await User.findOne({ email: normalizedEmail, }).select("+password +tokenVersion").populate("rank", "name level description");
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
-
-    const passwordMatches = await user.comparePassword(password);
-
-    if (!passwordMatches) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
-
-    if (!user.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been deactivated",
-      });
-    }
-
-    const token = generateToken(user._id, user.tokenVersion ?? 0);
-
-    return res.status(200).json({
-      success: true,
-      message: "Login successful",
-      token,
-      user: formatUser(user),
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to log in",
-    });
+  if (error.code === 11000) {
+    return fail(res, 409, "An account with this email or Google identity already exists", "ACCOUNT_ALREADY_EXISTS");
   }
+  return fail(res, 500, fallback);
 };
 
-// Get current user information
-const getCurrentUser = async (req, res) => {
+const verificationRequired = (res, email) => res.status(403).json({
+  success: false,
+  code: "EMAIL_VERIFICATION_REQUIRED",
+  requiresEmailVerification: true,
+  email,
+  message: "Verify your email address before signing in. You can request another verification email.",
+});
+
+const sessionResponse = async (res, user, message) => {
+  await user.populate("rank", RANK_FIELDS);
   return res.status(200).json({
     success: true,
-    user: formatUser(req.user),
+    message,
+    token: generateToken(user._id, user.tokenVersion ?? 0),
+    user: formatUser(user),
   });
 };
 
-// Update profile and change password functions
+const register = async (req, res) => {
+  try {
+    const { name, email, password } = req.body || {};
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidName(name)) return fail(res, 400, "Name must contain between 2 and 50 characters");
+    if (!isValidEmail(normalizedEmail)) return fail(res, 400, "Enter a valid email address");
+    const invalidPassword = passwordError(password);
+    if (invalidPassword) return fail(res, 400, invalidPassword);
+
+    if (await User.findOne({ email: normalizedEmail })) {
+      return fail(res, 409, "An account with this email already exists. Sign in, resend verification, or reset its password.", "ACCOUNT_ALREADY_EXISTS");
+    }
+    // Whitelist fields: the client cannot choose a role or verification state.
+    const user = await User.create({
+      name: name.trim(), email: normalizedEmail, password, isEmailVerified: false,
+    });
+
+    let delivery;
+    try {
+      delivery = await verification.requestVerification({ user });
+    } catch (error) {
+      logAuthError("Registration verification failed", error);
+      delivery = { status: "delivery-failed" };
+    }
+    if (delivery.status !== "sent") {
+      return res.status(503).json({
+        success: false,
+        code: "VERIFICATION_EMAIL_UNAVAILABLE",
+        requiresEmailVerification: true,
+        email: user.email,
+        message: "Your account was created, but the verification email could not be sent. Request another verification email shortly.",
+      });
+    }
+
+    // No JWT: registration is not a completed login anymore.
+    return res.status(201).json({
+      success: true,
+      requiresEmailVerification: true,
+      email: user.email,
+      message: "Account created. Check your email to verify your address before signing in.",
+    });
+  } catch (error) {
+    logAuthError("Registration failed", error);
+    return accountError(res, error, "Unable to create account");
+  }
+};
+
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmail(normalizedEmail) || typeof password !== "string" || !password) {
+      return fail(res, 400, "Email and password are required");
+    }
+    const user = await User.findOne({ email: normalizedEmail }).select("+password +tokenVersion");
+    if (!user || !(await user.comparePassword(password))) {
+      return fail(res, 401, "Invalid email or password");
+    }
+    if (!user.isActive) return fail(res, 403, "Your account has been deactivated", "ACCOUNT_DEACTIVATED");
+    if (user.isEmailVerified !== true) return verificationRequired(res, normalizedEmail);
+    return await sessionResponse(res, user, "Login successful");
+  } catch (error) {
+    logAuthError("Login failed", error);
+    return fail(res, 500, "Unable to log in");
+  }
+};
+
+const verifyEmail = async (req, res) => {
+  try {
+    const result = await verification.confirmVerification(req.body?.token);
+    if (result.status === "email-unavailable") {
+      return fail(res, 409, "That email address is no longer available. Request a change to another address.", "EMAIL_UNAVAILABLE");
+    }
+    if (result.status !== "verified") {
+      return fail(res, 400, "Verification link is invalid, expired, or already used", "INVALID_VERIFICATION_LINK");
+    }
+    return res.status(200).json({
+      success: true,
+      requiresLogin: true,
+      message: result.purpose === "change-email"
+        ? "Your email was changed and verified. Sign in again using your new email or linked Google account."
+        : "Email verified. You can now sign in.",
+    });
+  } catch (error) {
+    logAuthError("Email verification failed", error);
+    return fail(res, 500, "Unable to verify email");
+  }
+};
+
+const resendVerification = async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  if (!isValidEmail(email)) return fail(res, 400, "Enter a valid email address");
+  const generic = {
+    success: true,
+    message: "If this account needs verification, a verification email will be sent. Wait at least one minute before trying again.",
+  };
+  try {
+    const user = await User.findOne({ email, isActive: true, isEmailVerified: { $ne: true } }).select("+tokenVersion");
+    if (user) await verification.requestVerification({ user });
+    return res.status(200).json(generic);
+  } catch (error) {
+    logAuthError("Resend verification failed", error);
+    // The public response does not reveal account existence or SMTP outcome.
+    return res.status(200).json(generic);
+  }
+};
+
+const getCurrentUser = async (req, res) => res.status(200).json({
+  success: true, user: formatUser(req.user),
+});
+
 const updateProfile = async (req, res) => {
   try {
-    const {
-      name,
-      email,
-      currentPassword,
-    } = req.body;
+    const { name, email, currentPassword } = req.body || {};
+    if (name === undefined && email === undefined) return fail(res, 400, "Provide a name or email to update");
+    if (name !== undefined && !isValidName(name)) return fail(res, 400, "Name must contain between 2 and 50 characters");
+    const requestedEmail = email === undefined ? undefined : normalizeEmail(email);
+    if (email !== undefined && !isValidEmail(requestedEmail)) return fail(res, 400, "Enter a valid email address");
+    let user = await User.findById(req.user._id).select("+password +googleId +tokenVersion");
+    if (!user || !user.isActive) return fail(res, 403, "Your account is unavailable");
+    if ((user.tokenVersion ?? 0) !== (req.user.tokenVersion ?? 0)) return fail(res, 401, "Your session is no longer valid");
+    const changingEmail = requestedEmail !== undefined && requestedEmail !== user.email;
 
-    if (name === undefined && email === undefined) {
-      return res.status(400).json({
-        success: false,
-        message: "Provide a name or email to update",
-      });
+    if (changingEmail) {
+      if (!user.password) return fail(res, 400, "Use Forgot Password to set a password before changing your email", "PASSWORD_REQUIRED_FOR_EMAIL_CHANGE");
+      if (typeof currentPassword !== "string" || !currentPassword) return fail(res, 400, "Current password is required to change your email");
+      if (!(await user.comparePassword(currentPassword))) return fail(res, 400, "Current password is incorrect", "INVALID_CURRENT_PASSWORD");
+      if (await User.findOne({ email: requestedEmail, _id: { $ne: user._id } })) {
+        return fail(res, 409, "An account with this email already exists", "EMAIL_UNAVAILABLE");
+      }
+      const delivery = await verification.requestVerification({ user, targetEmail: requestedEmail, purpose: "change-email" });
+      if (delivery.status === "not-sent") return fail(res, 429, "Wait at least one minute before requesting another email change", "VERIFICATION_COOLDOWN");
+      if (delivery.status !== "sent") return fail(res, 503, "Unable to send the confirmation email. Please try again shortly.", "VERIFICATION_EMAIL_UNAVAILABLE");
     }
 
-    const user = await User.findById(req.user._id).select("+password +tokenVersion");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
+    // Name changes are applied after a requested verification email is sent.
+    // The actual login email is changed only by verifyEmail, after confirmation.
+    const filter = {
+      $and: [
+        { _id: user._id, isActive: true, isEmailVerified: true, email: user.email },
+        versionFilter(user.tokenVersion ?? 0),
+      ]
+    };
     if (name !== undefined) {
-      const normalizedName = name.trim();
-
-      if (!normalizedName) {
-        return res.status(400).json({
-          success: false,
-          message: "Name is required",
-        });
-      }
-
-      user.name = normalizedName;
-    }
-
-    if (email !== undefined) {
-      const normalizedEmail = email.toLowerCase().trim();
-
-      if (!normalizedEmail) {
-        return res.status(400).json({
-          success: false,
-          message: "Email is required",
-        });
-      }
-
-      const emailChanged = normalizedEmail !== user.email;
-
-      if (emailChanged) {
-        if (!currentPassword) {
-          return res.status(400).json({
-            success: false,
-            message: "Current password is required to change your email",
-          });
-        }
-
-        const passwordMatches = await user.comparePassword(currentPassword);
-
-        if (!passwordMatches) {
-          return res.status(401).json({
-            success: false,
-            message: "Current password is incorrect",
-          });
-        }
-
-        const emailOwner = await User.findOne({
-          email: normalizedEmail,
-          _id: {
-            $ne: user._id,
-          },
-        });
-
-        if (emailOwner) {
-          return res.status(409).json({
-            success: false,
-            message: "An account with this email already exists",
-          });
-        }
-
-        user.email = normalizedEmail;
-      }
-    }
-
-    await user.save();
-
-    await user.populate("rank", "name level description");
-
-    return res.status(200).json({
-      success: true,
-      message: "Profile updated successfully",
-      user: formatUser(user),
-    });
-  } catch (error) {
-    console.error("Update profile error:", error);
-
-    if (error.name === "ValidationError") {
-      return sendValidationError(error, res);
-    }
-
-    if (error.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message: "An account with this email already exists",
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to update profile",
-    });
-  }
-};
-
-// Change password function
-const changePassword = async (req, res) => {
-  try {
-    const {
-      currentPassword,
-      newPassword,
-      confirmPassword,
-    } = req.body;
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Current password, new password, and confirmation are required",
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "New password must contain at least 6 characters",
-      });
-    }
-
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "New passwords do not match",
-      });
-    }
-
-    const user = await User.findById(req.user._id).select("+password +tokenVersion");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    const passwordMatches = await user.comparePassword(currentPassword);
-
-    if (!passwordMatches) {
-      return res.status(401).json({
-        success: false,
-        message: "Current password is incorrect",
-      });
-    }
-
-    const passwordIsUnchanged = await user.comparePassword(newPassword);
-
-    if (passwordIsUnchanged) {
-      return res.status(400).json({
-        success: false,
-        message: "New password must be different from the current password",
-      });
-    }
-
-    user.password = newPassword;
-
-    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
-
-    await user.save();
-
-    await user.populate("rank", "name level description");
-
-    const token = generateToken(user._id, user.tokenVersion);
-
-    return res.status(200).json({
-      success: true,
-      message: "Password changed successfully",
-      token,
-      user: formatUser(user),
-    });
-  } catch (error) {
-    console.error("Change password error:", error);
-
-    if (error.name === "ValidationError") {
-      return sendValidationError(error, res);
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to change password",
-    });
-  }
-};
-
-// Google login function controller
-const googleLogin = async (req, res) => {
-  try {
-    const { credential } = req.body;
-
-    if (!credential) {
-      return res.status(400).json({
-        success: false,
-        message: "Google credential is required",
-      });
-    }
-
-    if (!process.env.GOOGLE_CLIENT_ID) {
-      console.error("GOOGLE_CLIENT_ID is missing");
-
-      return res.status(500).json({
-        success: false,
-        message: "Google authentication is unavailable",
-      });
-    }
-
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-
-    const payload = ticket.getPayload();
-
-    if (!payload?.sub || !payload?.email || payload.email_verified !== true) {
-      return res.status(401).json({
-        success: false,
-        message: "Unable to verify Google account",
-      });
-    }
-
-    const {
-      sub: googleId,
-      name,
-      email,
-      picture,
-    } = payload;
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    let user = await User.findOne({
-      googleId,
-    }).select("+googleId +tokenVersion");
-
-    if (!user) {
-      user = await User.findOne({
-        email: normalizedEmail,
-      }).select("+googleId +tokenVersion");
-    }
-
-    if (user && !user.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been deactivated",
-      });
-    }
-
-    if (!user) {
-      user = await User.create({
-        name: name || normalizedEmail.split("@")[0],
-        email: normalizedEmail,
-        googleId,
-        profilePicture: picture || "",
+      user = await User.findOneAndUpdate(filter, { $set: { name: name.trim() } }, {
+        returnDocument: "after", runValidators: true,
       });
     } else {
-      let shouldSave = false;
-
-      if (!user.googleId) {
-        user.googleId = googleId;
-        shouldSave = true;
-      }
-
-      if (picture && user.profilePicture !== picture) {
-        user.profilePicture = picture;
-        shouldSave = true;
-      }
-
-      if (shouldSave) {
-        await user.save();
-      }
+      user = await User.findOne(filter);
     }
-
-    await user.populate("rank", "name level description");
-
-    const token = generateToken(user._id, user.tokenVersion ?? 0);
-
+    if (!user) return fail(res, 409, "Your account changed during this request. Sign in again and retry.");
+    await user.populate("rank", RANK_FIELDS);
     return res.status(200).json({
       success: true,
-      message: "Google authentication successful",
-      token,
+      message: changingEmail
+        ? "Confirmation sent to your new email. Verify it to finish changing your login email."
+        : "Profile updated successfully",
+      emailChangePending: Boolean(user.pendingEmail),
       user: formatUser(user),
     });
   } catch (error) {
-    console.error("Google authentication error:", error);
-
-    return res.status(401).json({
-      success: false,
-      message: "Google authentication failed",
-    });
+    logAuthError("Profile update failed", error);
+    return accountError(res, error, "Unable to update profile");
   }
 };
 
-// Forgot password function controller
-const forgotPassword = async (req, res) => {
+const cancelEmailChange = async (req, res) => {
   try {
-    const email = req.body.email?.toLowerCase().trim();
+    const user = await User.findOneAndUpdate({
+      $and: [
+        { _id: req.user._id, isActive: true, isEmailVerified: true, emailVerificationPurpose: "change-email" },
+        versionFilter(req.user.tokenVersion ?? 0),
+      ]
+    }, { $set: clearVerification() }, { returnDocument: "after" });
+    if (!user) return fail(res, 409, "No pending email change is available to cancel");
+    await user.populate("rank", RANK_FIELDS);
+    return res.status(200).json({ success: true, message: "Pending email change cancelled", user: formatUser(user) });
+  } catch (error) {
+    logAuthError("Cancel email change failed", error);
+    return fail(res, 500, "Unable to cancel email change");
+  }
+};
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email address is required",
-      });
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+    if (typeof currentPassword !== "string" || !currentPassword) return fail(res, 400, "Current password is required");
+    const invalidPassword = passwordError(newPassword);
+    if (invalidPassword) return fail(res, 400, invalidPassword);
+    if (newPassword !== confirmPassword) return fail(res, 400, "New passwords do not match");
+    const user = await User.findById(req.user._id).select("+password +tokenVersion");
+    if (!user || !user.isActive) return fail(res, 403, "Your account is unavailable");
+    if ((user.tokenVersion ?? 0) !== (req.user.tokenVersion ?? 0)) return fail(res, 401, "Your session is no longer valid");
+    if (!(await user.comparePassword(currentPassword))) return fail(res, 400, "Current password is incorrect", "INVALID_CURRENT_PASSWORD");
+    if (await user.comparePassword(newPassword)) return fail(res, 400, "New password must be different from the current password");
+
+    // Query updates do not run the model's pre-save password hook.
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const updated = await User.findOneAndUpdate({
+      $and: [
+        { _id: user._id, isActive: true, isEmailVerified: true, password: user.password },
+        versionFilter(user.tokenVersion ?? 0),
+      ]
+    }, {
+      $set: { password: hashedPassword, ...clearPasswordReset(), ...clearVerification() },
+      $inc: { tokenVersion: 1 },
+    }, { returnDocument: "after", runValidators: true }).select("+tokenVersion");
+    if (!updated) return fail(res, 409, "Your account changed during this request. Sign in again and retry.");
+    return await sessionResponse(res, updated, "Password changed successfully");
+  } catch (error) {
+    logAuthError("Password change failed", error);
+    return accountError(res, error, "Unable to change password");
+  }
+};
+
+const googleLogin = async (req, res) => {
+  const credential = req.body?.credential;
+  if (typeof credential !== "string" || !credential) return fail(res, 400, "Google credential is required");
+  if (!process.env.GOOGLE_CLIENT_ID) return fail(res, 503, "Google authentication is unavailable");
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: process.env.GOOGLE_CLIENT_ID });
+    payload = ticket.getPayload();
+  } catch (error) {
+    logAuthError("Google credential verification failed", error);
+    return fail(res, 401, "Google authentication failed");
+  }
+  const email = normalizeEmail(payload?.email);
+  if (typeof payload?.sub !== "string" || !payload.sub || !isValidEmail(email) || payload.email_verified !== true) {
+    return fail(res, 401, "Unable to verify Google account");
+  }
+  // Google may not be authoritative for a third-party email, even when the
+  // signed email_verified claim is true. Those users verify through LeadFlow.
+  const authoritativeEmail = email.endsWith("@gmail.com") ||
+    (typeof payload.hd === "string" && payload.hd.length > 0);
+
+  try {
+    const googleId = payload.sub;
+    let user = await User.findOne({ googleId }).select("+googleId +tokenVersion");
+    if (!user) {
+      const existing = await User.findOne({ email }).select("+googleId +tokenVersion");
+      if (existing) {
+        if (!existing.isActive) return fail(res, 403, "Your account has been deactivated", "ACCOUNT_DEACTIVATED");
+        // Do not turn an unverified, pre-existing password into a verified login
+        // just because somebody subsequently signs in with Google.
+        if (existing.googleId || existing.isEmailVerified !== true || !authoritativeEmail) {
+          return fail(res, 409, "An account already uses this email. Sign in with its existing method, or use Forgot Password, before continuing with Google.", "ACCOUNT_LINK_REQUIRED");
+        }
+        user = await User.findOneAndUpdate({
+          $and: [
+            { _id: existing._id, email, isActive: true, isEmailVerified: true },
+            { $or: [{ googleId: { $exists: false } }, { googleId: null }] },
+            versionFilter(existing.tokenVersion ?? 0),
+          ]
+        }, { $set: { googleId } }, { returnDocument: "after" }).select("+googleId +tokenVersion");
+        if (!user) return fail(res, 409, "Your account changed. Please try signing in again.");
+      } else {
+        const displayName = typeof payload.name === "string" ? payload.name.trim().slice(0, 50) : "";
+        user = await User.create({
+          name: displayName.length >= 2 ? displayName : "LeadFlow member",
+          email,
+          googleId,
+          profilePicture: typeof payload.picture === "string" ? payload.picture : "",
+          isEmailVerified: authoritativeEmail,
+          emailVerifiedAt: authoritativeEmail ? new Date() : null,
+        });
+      }
     }
+    if (!user.isActive) return fail(res, 403, "Your account has been deactivated", "ACCOUNT_DEACTIVATED");
 
-    const genericResponse = {
-      success: true,
-      message: "If an account exists for this email, a reset link has been sent",
-    };
-
-    const user = await User.findOne({ email });
-
-    if (!user || !user.isActive) {
-      return res.status(200).json(genericResponse);
+    if (user.isEmailVerified !== true && authoritativeEmail && user.email === email) {
+      user = await User.findOneAndUpdate({
+        $and: [
+          { _id: user._id, googleId, email, isActive: true, isEmailVerified: { $ne: true } },
+          versionFilter(user.tokenVersion ?? 0),
+        ]
+      }, {
+        $set: { isEmailVerified: true, emailVerifiedAt: new Date(), ...clearVerification(), ...clearPasswordReset() },
+        $inc: { tokenVersion: 1 },
+      }, { returnDocument: "after" }).select("+googleId +tokenVersion");
+      if (!user) return fail(res, 409, "Your account changed. Please try signing in again.");
     }
+    if (user.isEmailVerified !== true) {
+      try { await verification.requestVerification({ user }); }
+      catch (error) { logAuthError("Google account email delivery failed", error); }
+      return verificationRequired(res, user.email);
+    }
+    if (typeof payload.picture === "string" && payload.picture !== user.profilePicture) {
+      const updated = await User.findOneAndUpdate({
+        $and: [
+          { _id: user._id, googleId, isActive: true, isEmailVerified: true },
+          versionFilter(user.tokenVersion ?? 0),
+        ]
+      }, { $set: { profilePicture: payload.picture } }, { returnDocument: "after" }).select("+tokenVersion");
+      if (!updated) return fail(res, 409, "Your account changed. Please try signing in again.");
+      user = updated;
+    }
+    return await sessionResponse(res, user, "Google authentication successful");
+  } catch (error) {
+    logAuthError("Google login failed", error);
+    return accountError(res, error, "Unable to complete Google sign-in");
+  }
+};
 
+const forgotPassword = async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  if (!isValidEmail(email)) return fail(res, 400, "Enter a valid email address");
+  const generic = { success: true, message: "If an account exists for this email, a reset link has been sent" };
+  try {
+    const user = await User.findOne({ email, isActive: true }).select("+tokenVersion");
+    if (!user) return res.status(200).json(generic);
     const resetToken = crypto.randomBytes(32).toString("hex");
-
-    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
-
-    user.passwordResetToken = hashedToken;
-    user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
-
-    await user.save();
-
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-
+    const resetHash = hashToken(resetToken);
+    const issuedAt = new Date();
+    // Preserve the existing frontend reset-password/:token route.
+    const resetUrl = buildClientLink(`/reset-password/${resetToken}`);
+    const previous = await User.findOneAndUpdate({
+      $and: [
+        { _id: user._id, email, isActive: true },
+        versionFilter(user.tokenVersion ?? 0),
+        {
+          $or: [
+            { passwordResetSentAt: null },
+            { passwordResetSentAt: { $lte: new Date(issuedAt.getTime() - RESEND_COOLDOWN_MS) } },
+          ]
+        },
+      ]
+    }, {
+      $set: {
+        passwordResetToken: resetHash,
+        passwordResetExpires: new Date(issuedAt.getTime() + 15 * 60 * 1000),
+        passwordResetEmail: email,
+        passwordResetSentAt: issuedAt,
+      }
+    }, { returnDocument: "before" }).select("+passwordResetToken +passwordResetExpires +passwordResetEmail");
+    if (!previous) return res.status(200).json(generic);
     try {
       await sendEmail({
-        to: user.email,
+        to: email,
         subject: "Reset your LeadFlow password",
-        html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-            <h2>Reset your LeadFlow password</h2>
-
-            <p>Hello ${user.name},</p>
-
-            <p>
-              We received a request to reset your LeadFlow password.
-            </p>
-
-            <p>
-              <a href="${resetUrl}">
-                Reset password
-              </a>
-            </p>
-
-            <p>
-              This link expires in 15 minutes. If you did not request this, you can safely ignore this email.
-            </p>
-          </div>
-        `,
+        text: `Reset your LeadFlow password: ${resetUrl}\nThis link expires in 15 minutes. If you did not request it, ignore this email.`,
+        html: `<div style="font-family:Arial,sans-serif;line-height:1.6">
+          <h2>Reset your LeadFlow password</h2><p>Hello ${escapeHtml(user.name)},</p>
+          <p><a href="${escapeHtml(resetUrl)}">Reset password</a></p>
+          <p>This link expires in 15 minutes. If you did not request it, ignore this email.</p>
+        </div>`,
       });
-    } catch (emailError) {
-      user.passwordResetToken = null;
-      user.passwordResetExpires = null;
-      await user.save();
-
-      console.error( "Password reset email error:", emailError.message);
-
-      return res.status(500).json({
-        success: false,
-        message: "Unable to send password reset email",
+    } catch (error) {
+      await User.updateOne({ _id: user._id, passwordResetToken: resetHash }, {
+        $set: {
+          passwordResetToken: previous.passwordResetToken ?? null,
+          passwordResetExpires: previous.passwordResetExpires ?? null,
+          passwordResetEmail: previous.passwordResetEmail ?? null,
+        }
       });
+      logAuthError("Password reset email failed", error);
     }
-
-    return res.status(200).json(genericResponse);
+    return res.status(200).json(generic);
   } catch (error) {
-    console.error("Forgot password error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to process password reset request",
-    });
+    logAuthError("Password reset request failed", error);
+    return res.status(200).json(generic);
   }
 };
 
-// Reset password function controller
 const resetPassword = async (req, res) => {
   try {
-    const { password, confirmPassword } = req.body;
-
-    if (!password || !confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Password and password confirmation are required",
-      });
+    const { password, confirmPassword } = req.body || {};
+    const invalidPassword = passwordError(password);
+    if (invalidPassword) return fail(res, 400, invalidPassword);
+    if (password !== confirmPassword) return fail(res, 400, "Passwords do not match");
+    if (!isValidToken(req.params?.token)) return fail(res, 400, "Reset link is invalid or has expired");
+    const resetHash = hashToken(req.params.token);
+    const candidate = await User.findOne({
+      passwordResetToken: resetHash, passwordResetExpires: { $gt: new Date() }, isActive: true,
+    }).select("+passwordResetEmail +tokenVersion");
+    if (!candidate || candidate.passwordResetEmail !== candidate.email) {
+      return fail(res, 400, "Reset link is invalid or has expired. Request a new link.");
     }
-
-    if (password !== confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Passwords do not match",
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must contain at least 6 characters",
-      });
-    }
-
-    const hashedToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
-
-    const user = await User.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: {
-        $gt: Date.now(),
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const updated = await User.findOneAndUpdate({
+      $and: [
+        {
+          _id: candidate._id, email: candidate.email, passwordResetEmail: candidate.email,
+          passwordResetToken: resetHash, passwordResetExpires: { $gt: new Date() }, isActive: true
+        },
+        versionFilter(candidate.tokenVersion ?? 0),
+      ]
+    }, {
+      $set: {
+        password: hashedPassword,
+        // This reset token was sent to and bound to the current email address.
+        isEmailVerified: true,
+        emailVerifiedAt: new Date(),
+        ...clearPasswordReset(),
+        ...clearVerification(),
       },
-    }).select("+passwordResetToken +passwordResetExpires +tokenVersion");
-
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: "Reset link is invalid or has expired",
-      });
-    }
-
-    user.password = password;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
-    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
-
-    await user.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Password reset successfully. You can now log in.",
-    });
+      $inc: { tokenVersion: 1 },
+    }, { returnDocument: "after", runValidators: true });
+    if (!updated) return fail(res, 400, "Reset link is invalid or has expired");
+    return res.status(200).json({ success: true, requiresLogin: true, message: "Password reset and email confirmed. You can now log in." });
   } catch (error) {
-    console.error("Reset password error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to reset password",
-    });
+    logAuthError("Password reset failed", error);
+    return accountError(res, error, "Unable to reset password");
   }
 };
 
 module.exports = {
-  register,
-  login,
-  googleLogin,
-  getCurrentUser,
-  updateProfile,
-  changePassword,
-  forgotPassword,
-  resetPassword,
+  register, login, googleLogin, getCurrentUser, updateProfile, changePassword,
+  forgotPassword, resetPassword, verifyEmail, resendVerification, cancelEmailChange,
 };
-

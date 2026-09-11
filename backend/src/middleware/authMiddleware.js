@@ -1,87 +1,43 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { logAuthError } = require("../utils/authValidation");
 require("../models/Rank");
 
-// Middleware to protect routes and ensure the user is authenticated
 const protect = async (req, res, next) => {
   try {
-    const authorizationHeader = req.headers.authorization;
-
-    if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
+    const header = req.headers.authorization;
+    if (typeof header !== "string" || !/^Bearer\s+\S+$/.test(header)) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
     }
-
-    const token = authorizationHeader.split(" ")[1];
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication token is missing",
-      });
+    const decoded = jwt.verify(header.replace(/^Bearer\s+/, ""), process.env.JWT_SECRET);
+    if (!decoded || typeof decoded !== "object" || !decoded.userId) {
+      return res.status(401).json({ success: false, message: "Invalid authentication token" });
     }
-
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-
-    const user = await User
-      .findById(decodedToken.userId)
-      .populate("rank", "name level description")
-      .select("+tokenVersion -password");
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "The user associated with this token no longer exists",
-      });
+    const user = await User.findById(decoded.userId)
+      .populate("rank", "name level description").select("+tokenVersion -password");
+    if (!user || (decoded.tokenVersion ?? 0) !== (user.tokenVersion ?? 0)) {
+      return res.status(401).json({ success: false, message: "Your session is no longer valid. Please log in again." });
     }
-
-    const tokenVersion = decodedToken.tokenVersion ?? 0;
-
-    const currentTokenVersion = user.tokenVersion ?? 0;
-
-    if (tokenVersion !== currentTokenVersion) {
-      return res.status(401).json({
-        success: false,
-        message: "Your session is no longer valid. Please log in again.",
-      });
-    }
-
     if (!user.isActive) {
+      return res.status(403).json({ success: false, code: "ACCOUNT_DEACTIVATED", message: "Your account has been deactivated" });
+    }
+    if (user.isEmailVerified !== true) {
       return res.status(403).json({
         success: false,
-        message: "Your account has been deactivated",
+        code: "EMAIL_VERIFICATION_REQUIRED",
+        requiresEmailVerification: true,
+        message: "Verify your email address before continuing",
       });
     }
-
     req.user = user;
-
     next();
   } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication token has expired",
-      });
+    if (["TokenExpiredError", "JsonWebTokenError", "NotBeforeError", "CastError"].includes(error.name)) {
+      return res.status(401).json({ success: false, message: "Invalid or expired authentication token" });
     }
-
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid authentication token",
-      });
-    }
-
-    console.error("Authentication error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to authenticate request",
-    });
+    logAuthError("Authentication failed", error);
+    return res.status(500).json({ success: false, message: "Unable to authenticate request" });
   }
 };
 
-module.exports = {
-  protect,
-};
+module.exports = { protect };

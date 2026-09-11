@@ -38,18 +38,24 @@ function RegisterPage() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
+        if (isLoading) return;
+
+        setValidationError("");
+
         if (formData.password !== formData.confirmPassword) {
             setValidationError("Passwords do not match");
             return;
         }
 
         if (formData.password.length < 6) {
-            setValidationError("Password must contain at least 6 characters");
+            setValidationError(
+                "Password must contain at least 6 characters"
+            );
             return;
         }
 
         try {
-            await dispatch(
+            const result = await dispatch(
                 registerUser({
                     name: formData.name,
                     email: formData.email,
@@ -57,11 +63,30 @@ function RegisterPage() {
                 })
             ).unwrap();
 
-            navigate("/dashboard");
-        } catch {
-            // The Redux state displays the API error.
+            navigate("/verify-email", {
+                replace: true,
+                state: {
+                    email: result.email,
+                    message: result.message,
+                },
+            });
+        } catch (failure) {
+            // The account may exist even when email delivery failed.
+            if (failure?.requiresEmailVerification) {
+                navigate("/verify-email", {
+                    replace: true,
+                    state: {
+                        email:
+                            failure.email ||
+                            formData.email.trim().toLowerCase(),
+                        error: failure.message,
+                    },
+                });
+            }
+
+            // Other errors are displayed through Redux.
         }
-    }; // HandleSubmit validates the form data and dispatches the registerUser action
+    };
 
     return (
         <main className="flex min-h-screen bg-slate-100">
@@ -196,6 +221,16 @@ function RegisterPage() {
                                 : "Create account"}
                         </button>
                     </form>
+
+                    <Link
+                        to="/verify-email"
+                        state={{
+                            email: formData.email.trim().toLowerCase(),
+                        }}
+                        className="mt-4 block text-center text-sm font-semibold text-blue-700 hover:text-blue-800"
+                    >
+                        Resend verification email
+                    </Link>
 
                     <div className="my-6 flex items-center gap-3">
                         <div className="h-px flex-1 bg-slate-200" />

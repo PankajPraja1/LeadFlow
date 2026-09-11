@@ -1,52 +1,111 @@
-import { createAsyncThunk, createSlice, } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import api from "../../services/api";
-// Retrieve the token from localStorage if it exists
-const savedToken = localStorage.getItem("leadflow_token");
+
+const isUsableToken = (token) =>
+  typeof token === "string" &&
+  token.trim() !== "" &&
+  !["undefined", "null"].includes(token.trim());
+
+const storedToken = localStorage.getItem("leadflow_token");
+
+const savedToken = isUsableToken(storedToken)
+  ? storedToken.trim()
+  : null;
+
+// Clean up invalid values saved by the old registration flow.
+if (storedToken !== null && savedToken === null) {
+  localStorage.removeItem("leadflow_token");
+}
 
 const getErrorMessage = (error, fallbackMessage) => {
-  return (error.response?.data?.message || fallbackMessage);
+  const message = error?.response?.data?.message;
+
+  return typeof message === "string" && message
+    ? message
+    : fallbackMessage;
 };
 
-// Exported async thunk for Google login
-export const googleLogin = createAsyncThunk("auth/googleLogin", async (credential, thunkAPI) => {
-  try {
-    const response = await api.post("/auth/google", {
-      credential,
-    });
+const getAuthFailure = (error, fallbackMessage) => {
+  const data = error?.response?.data;
 
-    localStorage.setItem("leadflow_token", response.data.token);
+  return {
+    message: getErrorMessage(error, fallbackMessage),
+    code: typeof data?.code === "string" ? data.code : null,
+    requiresEmailVerification:
+      data?.requiresEmailVerification === true,
+    email: typeof data?.email === "string" ? data.email : "",
+  };
+};
 
-    return response.data;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.response?.data?.message || "Unable to continue with Google");
+const saveVerifiedSession = (data) => {
+  if (
+    data?.success !== true ||
+    !isUsableToken(data.token) ||
+    data.user?.isEmailVerified !== true
+  ) {
+    throw new Error("The server returned an invalid login response");
   }
-});
 
-// Exported async thunks for user registration, login, fetching current user, updating profile, and changing password
-export const registerUser = createAsyncThunk("auth/register", async (userData, thunkAPI) => {
-  try {
-    const response = await api.post("/auth/register", userData);
+  const token = data.token.trim();
+  localStorage.setItem("leadflow_token", token);
 
-    localStorage.setItem("leadflow_token", response.data.token);
+  return { ...data, token };
+};
 
-    return response.data;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(getErrorMessage(error, "Unable to create account"));
+export const googleLogin = createAsyncThunk(
+  "auth/googleLogin",
+  async (credential, thunkAPI) => {
+    try {
+      const response = await api.post("/auth/google", {
+        credential,
+      });
+
+      return saveVerifiedSession(response.data);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        getAuthFailure(error, "Unable to continue with Google")
+      );
+    }
   }
-});
+);
 
-// Exported async thunk for user login
-export const loginUser = createAsyncThunk("auth/login", async (credentials, thunkAPI) => {
-  try {
-    const response = await api.post("/auth/login", credentials);
+export const registerUser = createAsyncThunk(
+  "auth/register",
+  async (userData, thunkAPI) => {
+    try {
+      const response = await api.post("/auth/register", userData);
 
-    localStorage.setItem("leadflow_token", response.data.token);
+      if (
+        response.data?.success !== true ||
+        response.data.requiresEmailVerification !== true
+      ) {
+        throw new Error("Unexpected registration response");
+      }
 
-    return response.data;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(getErrorMessage(error, "Unable to log in"));
+      // Registration creates a pending account, without a session.
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        getAuthFailure(error, "Unable to create account")
+      );
+    }
   }
-});
+);
+
+export const loginUser = createAsyncThunk(
+  "auth/login",
+  async (credentials, thunkAPI) => {
+    try {
+      const response = await api.post("/auth/login", credentials);
+
+      return saveVerifiedSession(response.data);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        getAuthFailure(error, "Unable to log in")
+      );
+    }
+  }
+);
 
 // Exported async thunk for fetching the current authenticated user
 export const getCurrentUser = createAsyncThunk(
@@ -127,6 +186,55 @@ export const changeUserPassword = createAsyncThunk("auth/changeUserPassword", as
   }
 });
 
+export const cancelPendingEmailChange = createAsyncThunk(
+  "auth/cancelPendingEmailChange",
+  async (_, thunkAPI) => {
+    const { token, user } = thunkAPI.getState().auth;
+
+    try {
+      const response = await api.delete("/auth/pending-email", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        signal: thunkAPI.signal,
+      });
+
+      const data = response.data;
+
+      if (
+        data?.success !== true ||
+        data.user?.id !== user.id ||
+        data.user.email !== user.email ||
+        data.user.pendingEmail !== null
+      ) {
+        return thunkAPI.rejectWithValue(
+          "Unable to confirm cancellation. Refresh your profile to check."
+        );
+      }
+
+      return data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        getErrorMessage(error, "Unable to cancel email change")
+      );
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const auth = getState().auth;
+
+      return Boolean(
+        auth.token &&
+        auth.user?.pendingEmail &&
+        !auth.isCheckingAuth &&
+        !auth.isUpdatingProfile &&
+        !auth.isChangingPassword &&
+        !auth.isCancellingEmailChange
+      );
+    },
+  }
+);
+
 // Create the auth slice with initial state, reducers, and extra reducers for handling async thunks
 const authSlice = createSlice({
   name: "auth",
@@ -144,6 +252,10 @@ const authSlice = createSlice({
 
     isUpdatingProfile: false,
     isChangingPassword: false,
+
+    isCancellingEmailChange: false,
+    cancelEmailRequestId: null,
+    cancelEmailRequestToken: null,
 
     error: null,
     profileError: null,
@@ -164,6 +276,9 @@ const authSlice = createSlice({
       state.authCheckError = null;
       state.isUpdatingProfile = false;
       state.isChangingPassword = false;
+      state.isCancellingEmailChange = false;
+      state.cancelEmailRequestId = null;
+      state.cancelEmailRequestToken = null;
       state.error = null;
       state.profileError = null;
       state.profileMessage = null;
@@ -188,6 +303,7 @@ const authSlice = createSlice({
       })
       .addCase(googleLogin.fulfilled, (state, action) => {
         state.isLoading = false;
+        state.error = null;
         state.token = action.payload.token;
         state.user = action.payload.user;
 
@@ -198,25 +314,21 @@ const authSlice = createSlice({
       })
       .addCase(googleLogin.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload;
+        state.error =
+          action.payload?.message || "Unable to continue with Google";
       })
       .addCase(registerUser.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(registerUser.fulfilled, (state, action) => {
+      .addCase(registerUser.fulfilled, (state) => {
         state.isLoading = false;
-        state.token = action.payload.token;
-        state.user = action.payload.user;
-
-        state.isCheckingAuth = false;
-        state.authRequestId = null;
-        state.authRequestToken = null;
-        state.authCheckError = null;
+        state.error = null;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload || "Unable to create account";
+        state.error =
+          action.payload?.message || "Unable to create account";
       })
       .addCase(loginUser.pending, (state) => {
         state.isLoading = true;
@@ -224,6 +336,7 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
+        state.error = null;
         state.token = action.payload.token;
         state.user = action.payload.user;
 
@@ -234,7 +347,8 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload || "Unable to log in";
+        state.error =
+          action.payload?.message || "Unable to log in";
       })
       .addCase(getCurrentUser.pending, (state, action) => {
         state.isCheckingAuth = true;
@@ -282,6 +396,48 @@ const authSlice = createSlice({
         } else {
           state.authCheckError = message;
         }
+      })
+      .addCase(cancelPendingEmailChange.pending, (state, action) => {
+        state.isCancellingEmailChange = true;
+        state.cancelEmailRequestId = action.meta.requestId;
+        state.cancelEmailRequestToken = state.token;
+        state.profileError = null;
+        state.profileMessage = null;
+      })
+      .addCase(cancelPendingEmailChange.fulfilled, (state, action) => {
+        if (state.cancelEmailRequestId !== action.meta.requestId) {
+          return;
+        }
+
+        const sameSession =
+          state.cancelEmailRequestToken === state.token;
+
+        state.isCancellingEmailChange = false;
+        state.cancelEmailRequestId = null;
+        state.cancelEmailRequestToken = null;
+
+        if (!sameSession) return;
+
+        state.user = action.payload.user;
+        state.profileError = null;
+        state.profileMessage = action.payload.message;
+      })
+      .addCase(cancelPendingEmailChange.rejected, (state, action) => {
+        if (state.cancelEmailRequestId !== action.meta.requestId) {
+          return;
+        }
+
+        const sameSession =
+          state.cancelEmailRequestToken === state.token;
+
+        state.isCancellingEmailChange = false;
+        state.cancelEmailRequestId = null;
+        state.cancelEmailRequestToken = null;
+
+        if (!sameSession) return;
+
+        state.profileError =
+          action.payload || "Unable to cancel email change";
       })
       .addCase(updateUserProfile.pending, (state) => {
         state.isUpdatingProfile = true;
