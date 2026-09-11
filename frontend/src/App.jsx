@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { getCurrentUser } from "./features/auth/authSlice";
 
 import DashboardPage from "./pages/DashboardPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LeadDetailsPage from "./pages/LeadDetailsPage";
 import LoginPage from "./pages/LoginPage";
@@ -45,6 +46,11 @@ function App() {
       <Route
         path="/reset-password/:token"
         element={<ResetPasswordPage />} />
+
+      <Route
+        path="/verify-email"
+        element={<VerifyEmailPage />}
+      />
 
       {/* Shared protected layout */}
       <Route

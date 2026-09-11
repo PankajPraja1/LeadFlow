@@ -1,7 +1,12 @@
 import { CalendarDays, KeyRound, Mail, Save, ShieldCheck, UserRound, } from "lucide-react";
 import { useEffect, useState, } from "react";
 import { useDispatch, useSelector, } from "react-redux";
-import { changeUserPassword, clearProfileFeedback, updateUserProfile, } from "../features/auth/authSlice";
+import {
+    cancelPendingEmailChange,
+    changeUserPassword,
+    clearProfileFeedback,
+    updateUserProfile,
+} from "../features/auth/authSlice";
 
 const emptyPasswordForm = {
     currentPassword: "",
@@ -30,8 +35,14 @@ function ProfilePage() {
         user,
         isUpdatingProfile,
         isChangingPassword,
+        isCancellingEmailChange,
         profileError,
         profileMessage, } = useSelector((state) => state.auth);
+
+    const isAccountBusy =
+        isUpdatingProfile ||
+        isChangingPassword ||
+        isCancellingEmailChange;
 
     const [profileEdits, setProfileEdits] = useState({});
 
@@ -94,8 +105,30 @@ function ProfilePage() {
         setPasswordForm((currentForm) => ({ ...currentForm, [name]: value, }));
     }; // Handle changes in the password form fields
 
+    const handleCancelEmailChange = async () => {
+        if (isAccountBusy || !user.pendingEmail) {
+            return;
+        }
+
+        clearFeedback();
+
+        try {
+            await dispatch(cancelPendingEmailChange()).unwrap();
+
+            setProfileEdits((currentEdits) => ({
+                ...currentEdits,
+                currentPassword: "",
+            }));
+        } catch {
+            // Redux displays the cancellation error.
+        }
+    };
+
     const handleProfileSubmit = async (event) => {
         event.preventDefault();
+        if (isAccountBusy) {
+            return;
+        }
         clearFeedback();
 
         const normalizedName = profileForm.name.trim();
@@ -131,6 +164,9 @@ function ProfilePage() {
 
     const handlePasswordSubmit = async (event) => {
         event.preventDefault();
+        if (isAccountBusy) {
+            return;
+        }
         clearFeedback();
 
         if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
@@ -171,15 +207,74 @@ function ProfilePage() {
                 </section>
 
                 {(validationError || profileError) && (
-                    <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    <div role="alert" className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                         {validationError || profileError}
                     </div>
                 )}
 
                 {profileMessage && (
-                    <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+                    <div role="status" className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
                         {profileMessage}
                     </div>
+                )}
+
+                {user.pendingEmail && (
+                    <section
+                        aria-labelledby="pending-email-title"
+                        className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5"
+                    >
+                        <h2
+                            id="pending-email-title"
+                            className="font-semibold text-amber-950"
+                        >
+                            Email change awaiting confirmation
+                        </h2>
+
+                        <dl className="mt-3 space-y-3 text-sm">
+                            <div>
+                                <dt className="text-amber-800">
+                                    Current login email
+                                </dt>
+
+                                <dd className="mt-1 break-all font-semibold text-amber-950">
+                                    {user.email}
+                                </dd>
+                            </div>
+
+                            <div>
+                                <dt className="text-amber-800">
+                                    New email awaiting verification
+                                </dt>
+
+                                <dd className="mt-1 break-all font-semibold text-amber-950">
+                                    {user.pendingEmail}
+                                </dd>
+                            </div>
+                        </dl>
+
+                        <p className="mt-3 text-sm leading-6 text-amber-900">
+                            Keep using your current email to sign in until you
+                            confirm the new address. The confirmation link expires
+                            after 24 hours.
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={handleCancelEmailChange}
+                            disabled={isAccountBusy}
+                            className="mt-4 inline-flex cursor-pointer items-center justify-center rounded-lg border border-amber-400 bg-white px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isCancellingEmailChange
+                                ? "Cancelling..."
+                                : "Cancel email change"}
+                        </button>
+
+                        <p className="mt-3 text-xs leading-5 text-amber-900">
+                            To request another confirmation link, enter the pending
+                            address in the form below, provide your current password,
+                            and save again. Wait at least one minute between requests.
+                        </p>
+                    </section>
                 )}
 
                 <div className="mt-7 grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -266,55 +361,60 @@ function ProfilePage() {
                                 </div>
                             </div>
 
-                            <form onSubmit={handleProfileSubmit} className="mt-6 space-y-5" >
-                                <div>
-                                    <label htmlFor="profile-name" className="mb-2 block text-sm font-medium text-slate-700" >
-                                        Full name
-                                    </label>
-
-                                    <input id="profile-name" name="name" value={profileForm.name} onChange={handleProfileChange} required minLength="2" maxLength="50" autoComplete="name"
-                                        className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label htmlFor="profile-email" className="mb-2 block text-sm font-medium text-slate-700" >
-                                        Email address
-                                    </label>
-
-                                    <div className="relative">
-                                        <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-
-                                        <input id="profile-email" name="email" type="email" value={profileForm.email} onChange={handleProfileChange} required autoComplete="email"
-                                            className="w-full rounded-lg border border-slate-300 py-3 pl-10 pr-4 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                        />
-                                    </div>
-                                </div>
-
-                                {emailChanged && (
+                            <form onSubmit={handleProfileSubmit} className="mt-6">
+                                <fieldset
+                                    disabled={isAccountBusy}
+                                    className="space-y-5"
+                                >
                                     <div>
-                                        <label htmlFor="email-current-password" className="mb-2 block text-sm font-medium text-slate-700" >
-                                            Current password
+                                        <label htmlFor="profile-name" className="mb-2 block text-sm font-medium text-slate-700" >
+                                            Full name
                                         </label>
 
-                                        <input id="email-current-password" name="currentPassword" type="password" value={profileForm.currentPassword} onChange={handleProfileChange}
-                                            required autoComplete="current-password" placeholder="Required to change email"
+                                        <input id="profile-name" name="name" value={profileForm.name} onChange={handleProfileChange} required minLength="2" maxLength="50" autoComplete="name"
                                             className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                         />
-
-                                        <p className="mt-2 text-xs text-slate-500">
-                                            Changing your email requires password verification.
-                                        </p>
                                     </div>
-                                )}
 
-                                <div className="flex justify-end border-t border-slate-200 pt-5">
-                                    <button type="submit" disabled={isUpdatingProfile} className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60" >
-                                        <Save size={17} />
+                                    <div>
+                                        <label htmlFor="profile-email" className="mb-2 block text-sm font-medium text-slate-700" >
+                                            Email address
+                                        </label>
 
-                                        {isUpdatingProfile ? "Saving..." : "Save profile"}
-                                    </button>
-                                </div>
+                                        <div className="relative">
+                                            <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+
+                                            <input id="profile-email" name="email" type="email" value={profileForm.email} onChange={handleProfileChange} required autoComplete="email"
+                                                className="w-full rounded-lg border border-slate-300 py-3 pl-10 pr-4 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {emailChanged && (
+                                        <div>
+                                            <label htmlFor="email-current-password" className="mb-2 block text-sm font-medium text-slate-700" >
+                                                Current password
+                                            </label>
+
+                                            <input id="email-current-password" name="currentPassword" type="password" value={profileForm.currentPassword} onChange={handleProfileChange}
+                                                required autoComplete="current-password" placeholder="Required to change email"
+                                                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                            />
+
+                                            <p className="mt-2 text-xs text-slate-500">
+                                                Changing your email requires password verification.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-end border-t border-slate-200 pt-5">
+                                        <button type="submit" disabled={isUpdatingProfile} className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60" >
+                                            <Save size={17} />
+
+                                            {isUpdatingProfile ? "Saving..." : "Save profile"}
+                                        </button>
+                                    </div>
+                                </fieldset>
                             </form>
                         </section>
 
@@ -330,56 +430,61 @@ function ProfilePage() {
                                     </h2>
 
                                     <p className="mt-1 text-sm text-slate-500">
-                                        Changing your password invalidates your older sessions.
+                                        Changing your password signs out your other sessions and cancels any pending email change.
                                     </p>
                                 </div>
                             </div>
 
-                            <form onSubmit={handlePasswordSubmit} className="mt-6 space-y-5" >
-                                <div>
-                                    <label htmlFor="current-password" className="mb-2 block text-sm font-medium text-slate-700" >
-                                        Current password
-                                    </label>
-
-                                    <input id="current-password" name="currentPassword" type="password" value={passwordForm.currentPassword} onChange={handlePasswordChange}
-                                        required autoComplete="current-password" className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                    />
-                                </div>
-
-                                <div className="grid gap-5 sm:grid-cols-2">
+                            <form onSubmit={handlePasswordSubmit} className="mt-6">
+                                <fieldset
+                                    disabled={isAccountBusy}
+                                    className="space-y-5"
+                                >
                                     <div>
-                                        <label htmlFor="new-password" className="mb-2 block text-sm font-medium text-slate-700" >
-                                            New password
+                                        <label htmlFor="current-password" className="mb-2 block text-sm font-medium text-slate-700" >
+                                            Current password
                                         </label>
 
-                                        <input id="new-password" name="newPassword" type="password" value={passwordForm.newPassword} onChange={handlePasswordChange}
-                                            required minLength="6" autoComplete="new-password"
-                                            className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                        <input id="current-password" name="currentPassword" type="password" value={passwordForm.currentPassword} onChange={handlePasswordChange}
+                                            required autoComplete="current-password" className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                         />
                                     </div>
 
-                                    <div>
-                                        <label htmlFor="confirm-password" className="mb-2 block text-sm font-medium text-slate-700" >
-                                            Confirm password
-                                        </label>
+                                    <div className="grid gap-5 sm:grid-cols-2">
+                                        <div>
+                                            <label htmlFor="new-password" className="mb-2 block text-sm font-medium text-slate-700" >
+                                                New password
+                                            </label>
 
-                                        <input id="confirm-password" name="confirmPassword" type="password"
-                                            value={passwordForm.confirmPassword} onChange={handlePasswordChange}
-                                            required minLength="6" autoComplete="new-password"
-                                            className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                        />
+                                            <input id="new-password" name="newPassword" type="password" value={passwordForm.newPassword} onChange={handlePasswordChange}
+                                                required minLength="6" autoComplete="new-password"
+                                                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label htmlFor="confirm-password" className="mb-2 block text-sm font-medium text-slate-700" >
+                                                Confirm password
+                                            </label>
+
+                                            <input id="confirm-password" name="confirmPassword" type="password"
+                                                value={passwordForm.confirmPassword} onChange={handlePasswordChange}
+                                                required minLength="6" autoComplete="new-password"
+                                                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                            />
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="flex justify-end border-t border-slate-200 pt-5">
-                                    <button type="submit" disabled={isChangingPassword}
-                                        className="flex cursor-pointer items-center gap-2 rounded-lg bg-purple-700 px-5 py-2.5 font-semibold text-white hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        <KeyRound size={17} />
+                                    <div className="flex justify-end border-t border-slate-200 pt-5">
+                                        <button type="submit" disabled={isChangingPassword}
+                                            className="flex cursor-pointer items-center gap-2 rounded-lg bg-purple-700 px-5 py-2.5 font-semibold text-white hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            <KeyRound size={17} />
 
-                                        {isChangingPassword ? "Changing..." : "Change password"}
-                                    </button>
-                                </div>
+                                            {isChangingPassword ? "Changing..." : "Change password"}
+                                        </button>
+                                    </div>
+                                </fieldset>
                             </form>
                         </section>
                     </div>

@@ -1,45 +1,52 @@
 const express = require("express");
-
 const {
-  register,
-  login,
-  googleLogin,
-  getCurrentUser,
-  updateProfile,
-  changePassword,
-  forgotPassword,
-  resetPassword,
+  register, login, googleLogin, getCurrentUser, updateProfile, changePassword,
+  forgotPassword, resetPassword, verifyEmail, resendVerification, cancelEmailChange,
 } = require("../controllers/authController");
 
-// Add protected route for getting current user
-const { protect, } = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/authMiddleware");
+
+const {
+  authRequestLimiter,
+  signInLimiter,
+  emailRequestLimiter,
+  accountActionLimiter,
+} = require("../middleware/authRateLimit");
 
 const router = express.Router();
 
-router.post("/register", register);
-router.post("/login", login);
-router.post("/google", googleLogin);
+router.use((req, res, next) => {
+  res.set("Cache-Control", "no-store");
 
-// order matters here, protect middleware should be applied before getCurrentUser
-// Add protected route for getting current user
-router.get("/me",
-  protect,
-  getCurrentUser);
+  if (["POST", "PATCH", "DELETE"].includes(req.method)) {
+    return authRequestLimiter(req, res, next);
+  }
 
-// Add protected route for updating user profile
-router.patch("/profile",
-  protect,
-  updateProfile);
+  return next();
+});
 
-// Add protected route for changing password
-router.patch("/password",
-  protect,
-  changePassword);
+router.post("/register", emailRequestLimiter, register);
 
-// Add route for forgot password
-router.post("/forgot-password", forgotPassword);
+router.post("/login", signInLimiter, login);
 
-// Add route for resetting password
+router.post("/google", signInLimiter, googleLogin);
+
+// Verification is public and explicitly consumes a token with POST.
+// Do not add a GET handler that consumes email links automatically.
+router.post("/verify-email", verifyEmail);
+
+router.post("/resend-verification", emailRequestLimiter, resendVerification);
+
+router.post("/forgot-password", emailRequestLimiter, forgotPassword);
+
 router.patch("/reset-password/:token", resetPassword);
+
+router.get("/me", protect, getCurrentUser);
+
+router.patch("/profile", protect, accountActionLimiter, updateProfile);
+
+router.patch("/password", protect, accountActionLimiter, changePassword);
+
+router.delete("/pending-email", protect, accountActionLimiter, cancelEmailChange);
 
 module.exports = router;

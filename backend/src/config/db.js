@@ -9,7 +9,9 @@ const connectDB = async () => {
 
   if (!connectionPromise) {
     connectionPromise = mongoose
-      .connect(process.env.MONGODB_URI)
+      .connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 10000,
+      })
       .then((mongooseInstance) => {
         console.log(
           `MongoDB connected: ${mongooseInstance.connection.host}`
@@ -17,9 +19,8 @@ const connectDB = async () => {
 
         return mongooseInstance.connection;
       })
-      .catch((error) => {
+      .finally(() => {
         connectionPromise = null;
-        throw error;
       });
   }
 
