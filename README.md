@@ -21,13 +21,13 @@ The application uses a React and Redux Toolkit frontend, an Express REST API, Mo
 
 ## Project Status
 
-**Latest released version: v1.5.0 — shared app layout and session recovery.**
+**Version: v1.6.0 — email verification and authentication rate limits.**
 
-**Unreleased, planned v1.6.0: email verification and authentication rate limits.** Implementation and local automated/browser checks are complete; production deployment and validation are pending. The authentication flow and API documentation below describe this upcoming release.
+The email-verification and authentication rate-limit changes are merged into `main` and deployed to both Vercel production projects. Local automated/browser checks and production verification have passed.
 
 Authentication, account security, lead management, pipeline analytics, follow-up scheduling, lead-detail pages, interaction notes, activity history, and marketing-plan management are implemented and deployed.
 
-The v1.5.0 shared layout and session-recovery changes are merged into `main`, deployed, and tagged. The roadmap below lists subsequent work.
+The shared application layout, mobile navigation, and session recovery remain part of the deployed application. The roadmap below lists subsequent work.
 
 ## Features
 
@@ -265,7 +265,9 @@ npm run lint
 npm run build
 ```
 
-Local checks completed for this release include registration/verification, resend and token reuse, pending-email confirmation/cancellation, older-account verification, password reset across sessions, unverified-account recovery, unknown-email responses, and Google sign-in. Production validation remains pending.
+Local checks completed for this release include registration/verification, resend and token reuse, pending-email confirmation/cancellation, older-account verification, password reset across sessions, unverified-account recovery, unknown-email responses, and Google sign-in.
+
+Production checks passed for registration and verification email delivery, production email links, rejection of reused verification tokens, older-account access and data preservation, password recovery across sessions, pending-email cancellation, Google sign-in, and protected-page refresh.
 
 ## Authentication Rate Limits
 
@@ -329,7 +331,7 @@ Access based on actual team membership and sponsor relationships is planned. The
 
 ## Version History
 
-### Unreleased — planned v1.6.0
+### v1.6.0
 
 - Added email ownership verification and registration without an immediate session
 - Added explicit verification, resend, and verification-aware login/Google flows
@@ -338,7 +340,7 @@ Access based on actual team membership and sponsor relationships is planned. The
 - Strengthened recovery, token consumption, and session invalidation
 - Added MongoDB-backed authentication rate limits and database reconnection handling
 - Added account-security tests and a MongoDB rate-limit integration check
-- Completed local validation; production deployment and release tag pending
+- Completed local automated/browser checks and production validation on Vercel
 
 ### v1.5.0
 
