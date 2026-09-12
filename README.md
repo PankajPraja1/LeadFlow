@@ -29,6 +29,12 @@ Authentication, account security, lead management, pipeline analytics, follow-up
 
 The shared application layout, mobile navigation, and session recovery remain part of the deployed application. The roadmap below lists subsequent work.
 
+### In progress: v1.7.0 — Follow-ups and personal tasks
+
+The Task API, owner-only personal tasks, lead-linked follow-ups, transactional lead-date synchronization, migration tooling, and lead-form compatibility changes have passed local automated and browser checks. Production rollout and shared-database initialization are pending.
+
+The dedicated Follow-ups workspace is still in development. v1.7.0 has not been released.
+
 ## Features
 
 ### Authentication and account security

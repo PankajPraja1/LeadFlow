@@ -4,25 +4,37 @@ const Activity = require("../models/Activity");
 const recordActivity = async ({
     leadId,
     userId,
+    taskId = null,
     type,
     description,
     changes = null,
+    session = null,
+    failOnError = false,
 }) => {
     try {
-        return await Activity.create({
+        const activity = new Activity({
             lead: leadId,
             performedBy: userId,
+            task: taskId,
             type,
             description,
             changes,
         });
-    } catch (error) {
-        console.error("Activity recording error:", error);
 
+        return await activity.save(session ? { session } : {});
+    } catch (error) {
+        // Let the caller abort/retry the whole transaction when this write fails.
+        if (session || failOnError) {
+            throw error;
+        }
+
+        // Preserve best-effort logging for existing callers without a session.
+        console.error("Activity recording error:", {
+            name: error.name,
+            code: error.code,
+        });
         return null;
     }
 };
 
-module.exports = {
-    recordActivity,
-};
+module.exports = { recordActivity };

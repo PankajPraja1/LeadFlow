@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarDays, Clock3, Mail, MapPin, Pencil, Phone, Plus, RefreshCw, Save, Trash2, UserPlus, UserRound, X, } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock3, Mail, MapPin, Pencil, Phone, Plus, RefreshCw, Save, Trash2, UserPlus, UserRound, X, Check, } from "lucide-react";
 
 import { useEffect, useState, } from "react";
 import { useDispatch, useSelector, } from "react-redux";
@@ -38,6 +38,26 @@ const activityStyles = {
         style: "bg-amber-100 text-amber-700",
     },
 
+    followup_created: {
+        icon: CalendarDays,
+        style: "bg-amber-100 text-amber-700",
+    },
+
+    followup_rescheduled: {
+        icon: RefreshCw,
+        style: "bg-amber-100 text-amber-700",
+    },
+
+    followup_completed: {
+        icon: Check,
+        style: "bg-emerald-100 text-emerald-700",
+    },
+
+    followup_cancelled: {
+        icon: X,
+        style: "bg-slate-100 text-slate-600",
+    },
+
     lead_assigned: {
         icon: UserRound,
         style: "bg-cyan-100 text-cyan-700",
@@ -59,16 +79,30 @@ const activityStyles = {
     },
 };
 
-// Check if the user has permission to modify a note based on their role and the note's author
-const canModifyNote = (user, note) => {
-    const currentUserId = user?._id || user?.id;
-    const authorId = note.author?._id || note.author?.id || note.author;
-    const hasElevatedAccess = [
-        "admin",
-        "leader",
-    ].includes(user?.systemRole);
+const canWriteLead = (user) =>
+    ["admin", "leader", "member"].includes(
+        user?.systemRole
+    );
 
-    return (hasElevatedAccess || authorId?.toString() === currentUserId?.toString());
+const canModifyNote = (user, note) => {
+    if (!canWriteLead(user)) return false;
+
+    const currentUserId = user?._id || user?.id;
+
+    const authorId =
+        note?.author?._id ||
+        note?.author?.id ||
+        note?.author;
+
+    if (!currentUserId) return false;
+
+    return (
+        ["admin", "leader"].includes(user.systemRole) ||
+        Boolean(
+            authorId &&
+            String(authorId) === String(currentUserId)
+        )
+    );
 };
 
 const formatDate = (date) => {
@@ -126,6 +160,7 @@ function LeadDetailsPage() {
     const { isSavingLead, error: crmError, } = useSelector((state) => state.crm);
 
     const { user } = useSelector((state) => state.auth);
+    const canEditLead = canWriteLead(user);
 
     useEffect(() => {
         dispatch(fetchLeadDetails(leadId));
@@ -137,6 +172,7 @@ function LeadDetailsPage() {
     // Handle adding a new note for the lead
     const handleAddNote = async (event) => {
         event.preventDefault();
+        if (!canEditLead || isNoteSaving) return;
         const content = newNote.trim();
 
         if (!content) {
@@ -157,6 +193,7 @@ function LeadDetailsPage() {
 
     // Start editing an existing note by setting the editing state
     const startEditingNote = (note) => {
+        if (!canModifyNote(user, note) || isNoteSaving) return;
         setEditingNoteId(note._id);
         setEditingNoteContent(note.content);
     };
@@ -170,6 +207,9 @@ function LeadDetailsPage() {
     // Handle updating an existing note for the lead
     const handleUpdateNote = async (event) => {
         event.preventDefault();
+        const note = notes.find((item) => item._id === editingNoteId);
+
+        if (!note || !canModifyNote(user, note) || isNoteSaving) return;
 
         const content = editingNoteContent.trim();
 
@@ -192,6 +232,7 @@ function LeadDetailsPage() {
 
     // Handle deleting an existing note for the lead after user confirmation
     const handleDeleteNote = async (note) => {
+        if (!canModifyNote(user, note) || isNoteSaving) return;
         const shouldDelete = window.confirm("Delete this note?");
 
         if (!shouldDelete) {
@@ -214,6 +255,7 @@ function LeadDetailsPage() {
 
     // Handle saving updated lead details
     const handleSaveLead = async (leadData) => {
+        if (!canEditLead || isSavingLead) return;
         try {
             await dispatch(updateLead({
                 id: leadId,
@@ -230,6 +272,7 @@ function LeadDetailsPage() {
 
     // Handle deleting the lead after user confirmation
     const handleDeleteLead = async () => {
+        if (!canEditLead || isSavingLead) return;
         const shouldDelete = window.confirm(`Delete the lead "${lead.name}"?`);
 
         if (!shouldDelete) {
@@ -317,21 +360,23 @@ function LeadDetailsPage() {
                         </p>
                     </div>
 
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                        <button type="button" onClick={handleDeleteLead} disabled={isSavingLead}
-                            className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            <Trash2 size={17} />
-                            Delete lead
-                        </button>
+                    {canEditLead && (
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <button type="button" onClick={handleDeleteLead} disabled={isSavingLead}
+                                className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <Trash2 size={17} />
+                                Delete lead
+                            </button>
 
-                        <button type="button" onClick={() => setIsEditModalOpen(true)} disabled={isSavingLead}
-                            className="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            <Pencil size={17} />
-                            Edit lead
-                        </button>
-                    </div>
+                            <button type="button" onClick={() => setIsEditModalOpen(true)} disabled={isSavingLead}
+                                className="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <Pencil size={17} />
+                                Edit lead
+                            </button>
+                        </div>
+                    )}
                 </section>
 
                 <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_1.25fr]">
@@ -400,7 +445,7 @@ function LeadDetailsPage() {
                                         </p>
 
                                         <p className="mt-1 text-sm font-medium text-slate-700">
-                                            {formatDate(lead.nextFollowUp)}
+                                            {formatDateTime(lead.nextFollowUp) || "Not scheduled"}
                                         </p>
                                     </div>
                                 </div>
@@ -443,25 +488,27 @@ function LeadDetailsPage() {
                                 </p>
                             </div>
 
-                            <form onSubmit={handleAddNote} className="mt-5">
-                                <textarea value={newNote} onChange={(event) => setNewNote(event.target.value)}
-                                    maxLength="2000" rows="4" placeholder="Write a note about this lead..." className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                />
+                            {canEditLead && (
+                                <form onSubmit={handleAddNote} className="mt-5">
+                                    <textarea value={newNote} onChange={(event) => setNewNote(event.target.value)}
+                                        maxLength="2000" rows="4" placeholder="Write a note about this lead..." className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                    />
 
-                                <div className="mt-3 flex items-center justify-between gap-4">
-                                    <p className="text-xs text-slate-400">
-                                        {newNote.length}/2000
-                                    </p>
+                                    <div className="mt-3 flex items-center justify-between gap-4">
+                                        <p className="text-xs text-slate-400">
+                                            {newNote.length}/2000
+                                        </p>
 
-                                    <button type="submit" disabled={isNoteSaving || !newNote.trim()}
-                                        className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        <Plus size={17} />
+                                        <button type="submit" disabled={isNoteSaving || !newNote.trim()}
+                                            className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            <Plus size={17} />
 
-                                        {isNoteSaving ? "Adding..." : "Add note"}
-                                    </button>
-                                </div>
-                            </form>
+                                            {isNoteSaving ? "Adding..." : "Add note"}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
 
                             <div className="mt-6 space-y-4">
                                 {notes.length === 0 ? (
@@ -470,7 +517,7 @@ function LeadDetailsPage() {
                                     </p>
                                 ) : (
                                     notes.map((note) => {
-                                        const isEditing = editingNoteId === note._id;
+                                        const isEditing = canModifyNote(user, note) && editingNoteId === note._id;
 
                                         const userCanModify = canModifyNote(user, note);
 
@@ -607,18 +654,20 @@ function LeadDetailsPage() {
                 </div>
             </main>
 
-            <LeadModal
-                isOpen={isEditModalOpen}
-                lead={lead}
-                isSaving={isSavingLead}
-                error={crmError}
-                onClose={() => {
-                    if (!isSavingLead) {
-                        setIsEditModalOpen(false);
-                    }
-                }}
-                onSave={handleSaveLead}
-            />
+            {canEditLead && isEditModalOpen && (
+                <LeadModal
+                    isOpen={isEditModalOpen}
+                    lead={lead}
+                    isSaving={isSavingLead}
+                    error={crmError}
+                    onClose={() => {
+                        if (!isSavingLead) {
+                            setIsEditModalOpen(false);
+                        }
+                    }}
+                    onSave={handleSaveLead}
+                />
+            )}
         </div>
     );
 }

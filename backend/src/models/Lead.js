@@ -52,6 +52,19 @@ const leadSchema = new mongoose.Schema(
       default: null,
     },
 
+    followUpRevision: {
+      type: Number,
+      default: 0,
+      min: 0,
+      select: false,
+    },
+
+    followUpsMigratedAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

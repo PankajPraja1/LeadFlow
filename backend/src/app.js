@@ -10,6 +10,8 @@ const leadRoutes = require("./routes/leadRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 // Import plan routes
 const planRoutes = require("./routes/planRoutes");
+// Import task routes
+const taskRoutes = require("./routes/taskRoutes");
 
 const app = express();
 
@@ -50,5 +52,7 @@ app.use("/api/leads", leadRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 // Use plan routes
 app.use("/api/plans", planRoutes);
+// Use task routes
+app.use("/api/tasks", taskRoutes);
 
 module.exports = app;

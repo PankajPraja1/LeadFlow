@@ -1,139 +1,92 @@
 const Lead = require("../models/Lead");
-const Activity = require("../models/Activity");
-const LeadNote = require("../models/LeadNote");
-
-const { recordActivity, } = require("../services/activityService");
 
 const { hasTeamAccess, isValidLeadId, buildLeadAccessFilter, } = require("../utils/leadAccess");
 
-// Utility functions and constants for lead management
-const allowedUpdateFields = [
-  "name",
-  "email",
-  "phone",
-  "source",
-  "status",
-  "notes",
-  "nextFollowUp",
-];
+const { createLeadWithFollowUp, updateLeadWithFollowUps, deleteLeadWithFollowUps, } = require("../services/leadWriteService");
 
-const fieldLabels = {
-  name: "name",
-  email: "email",
-  phone: "phone number",
-  source: "source",
-  notes: "general notes",
-};
-
-const formatStatus = (status) => {
-  if (!status) {
-    return "None";
+const sendError = (res, error, fallback) => {
+  if ([400, 401, 403, 404, 409, 503].includes(error.statusCode)) {
+    return res.status(error.statusCode).json({
+      success: false,
+      message: error.message,
+    });
   }
 
-  return (
-    status.charAt(0).toUpperCase() +
-    status.slice(1)
-  );
-};
+  if (error.name === "ValidationError") {
+    const errors = Object.values(error.errors).map((item) => item.message);
 
-const serializeValue = (value) => {
-  if (value instanceof Date) {
-    return value.toISOString();
+    return res.status(400).json({
+      success: false,
+      message: errors[0],
+      errors,
+    });
   }
 
-  if (value === undefined) {
-    return null;
+  if (error.name === "CastError") {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid field value",
+    });
   }
 
-  return value;
-};
+  if (error.name === "VersionError") {
+    return res.status(409).json({
+      success: false,
+      message: "This record changed. Refresh and try again.",
+    });
+  }
 
-const sendValidationError = (error, res) => {
-  const messages = Object.values(error.errors).map((item) => item.message);
+  console.error(fallback, {
+    name: error.name,
+    code: error.code,
+  });
 
-  return res.status(400).json({
+  return res.status(500).json({
     success: false,
-    message: messages[0] || "Validation failed",
-    errors: messages,
+    message: fallback,
   });
 };
 
-// Create lead ...
+const publicLead = async (lead) => {
+  // Population happens after commit, using ordinary reads.
+  lead.$session(null);
+
+  await lead.populate([
+    {
+      path: "assignedTo",
+      select: "name email systemRole",
+    },
+    {
+      path: "createdBy",
+      select: "name email systemRole",
+    },
+  ]);
+
+  const result = lead.toObject();
+
+  delete result.followUpRevision;
+  delete result.followUpsMigratedAt;
+
+  return result;
+};
+
 const createLead = async (req, res) => {
   try {
-    const {
-      name,
-      email,
-      phone,
-      source,
-      status,
-      notes,
-      nextFollowUp,
-    } = req.body;
-
-    if (!name || !phone) {
-      return res.status(400).json({
-        success: false,
-        message: "Lead name and phone number are required",
-      });
-    }
-
-    const lead = await Lead.create({
-      name,
-      email,
-      phone,
-      source,
-      status,
-      notes,
-      nextFollowUp,
-      assignedTo: req.user._id,
-      createdBy: req.user._id,
+    const lead = await createLeadWithFollowUp({
+      user: req.user,
+      body: req.body,
     });
-
-    await recordActivity({
-      leadId: lead._id,
-      userId: req.user._id,
-      type: "lead_created",
-      description: `Created lead ${lead.name}`,
-      changes: {
-        status: {
-          from: null,
-          to: lead.status,
-        },
-      },
-    });
-
-    await lead.populate([
-      {
-        path: "assignedTo",
-        select: "name email systemRole",
-      },
-      {
-        path: "createdBy",
-        select: "name email systemRole",
-      },
-    ]);
 
     return res.status(201).json({
       success: true,
       message: "Lead created successfully",
-      lead,
+      lead: await publicLead(lead),
     });
   } catch (error) {
-    console.error("Create lead error:", error);
-
-    if (error.name === "ValidationError") {
-      return sendValidationError(error, res);
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to create lead",
-    });
+    return sendError(res, error, "Unable to create lead");
   }
 };
 
-// Get all accessible leads 
 const getLeads = async (req, res) => {
   try {
     const { status, search } = req.query;
@@ -149,26 +102,12 @@ const getLeads = async (req, res) => {
     }
 
     if (search) {
-      filter.$or = [
-        {
-          name: {
-            $regex: search,
-            $options: "i",
-          },
+      filter.$or = ["name", "email", "phone"].map((field) => ({
+        [field]: {
+          $regex: search,
+          $options: "i",
         },
-        {
-          email: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          phone: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-      ];
+      }));
     }
 
     const leads = await Lead.find(filter).populate("assignedTo", "name email systemRole").sort({ createdAt: -1 });
@@ -179,30 +118,22 @@ const getLeads = async (req, res) => {
       leads,
     });
   } catch (error) {
-    console.error("Get leads error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to retrieve leads",
-    });
+    return sendError(res, error, "Unable to retrieve leads");
   }
 };
 
-// Get one accessible lead
 const getLeadById = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    if (!isValidLeadId(id)) {
+    if (!isValidLeadId(req.params.id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid lead ID",
       });
     }
 
-    const filter = buildLeadAccessFilter(req.user, id);
-
-    const lead = await Lead.findOne(filter).populate("assignedTo", "name email systemRole").populate("createdBy", "name email systemRole");
+    const lead = await Lead.findOne(buildLeadAccessFilter(req.user, req.params.id))
+      .populate("assignedTo", "name email systemRole")
+      .populate("createdBy", "name email systemRole");
 
     if (!lead) {
       return res.status(404).json({
@@ -216,184 +147,41 @@ const getLeadById = async (req, res) => {
       lead,
     });
   } catch (error) {
-    console.error("Get lead details error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to retrieve lead details",
-    });
+    return sendError(res, error, "Unable to retrieve lead details");
   }
 };
 
-// Update accessible lead
 const updateLead = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    if (!isValidLeadId(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid lead ID",
-      });
-    }
-
-    const filter = buildLeadAccessFilter(req.user, id);
-
-    const lead = await Lead.findOne(filter);
-
-    if (!lead) {
-      return res.status(404).json({
-        success: false,
-        message: "Lead not found or access denied",
-      });
-    }
-
-    const changes = {};
-
-    allowedUpdateFields.forEach((field) => {
-      if (req.body[field] === undefined) {
-        return;
-      }
-
-      const previousValue = serializeValue(lead.get(field));
-
-      lead.set(field, req.body[field]);
-
-      const nextValue = serializeValue(lead.get(field));
-
-      if (JSON.stringify(previousValue) !== JSON.stringify(nextValue)) {
-        changes[field] = {
-          from: previousValue,
-          to: nextValue,
-        };
-      }
+    const lead = await updateLeadWithFollowUps({
+      user: req.user,
+      leadId: req.params.id,
+      body: req.body,
     });
-
-    await lead.save();
-
-    const activityPromises = [];
-
-    if (changes.status) {
-      activityPromises.push(recordActivity({
-        leadId: lead._id,
-        userId: req.user._id,
-        type: "status_changed",
-        description: `Changed status from ` + `${formatStatus(changes.status.from)} to ` + `${formatStatus(changes.status.to)}`,
-        changes: {
-          status: changes.status,
-        },
-      })
-      );
-    }
-
-    if (changes.nextFollowUp) {
-      const hasNewFollowUp = changes.nextFollowUp.to !== null;
-
-      activityPromises.push(recordActivity({
-        leadId: lead._id,
-        userId: req.user._id,
-        type: "followup_updated",
-        description: hasNewFollowUp ? "Updated the follow-up date" : "Cleared the follow-up date",
-        changes: {
-          nextFollowUp: changes.nextFollowUp,
-        },
-      }));
-    }
-
-    const generalChanges = Object.fromEntries(Object.entries(changes).filter(([field]) => ![
-      "status",
-      "nextFollowUp",
-    ].includes(field)));
-
-    const generalFields = Object.keys(generalChanges);
-
-    if (generalFields.length > 0) {
-      const labels = generalFields.map((field) => fieldLabels[field] || field);
-
-      activityPromises.push(recordActivity({
-        leadId: lead._id,
-        userId: req.user._id,
-        type: "lead_updated",
-        description: `Updated ${labels.join(", ")}`,
-        changes: generalChanges,
-      }));
-    }
-
-    await Promise.all(activityPromises);
-
-    await lead.populate([
-      {
-        path: "assignedTo",
-        select: "name email systemRole",
-      },
-      {
-        path: "createdBy",
-        select: "name email systemRole",
-      },
-    ]);
 
     return res.status(200).json({
       success: true,
       message: "Lead updated successfully",
-      lead,
+      lead: await publicLead(lead),
     });
   } catch (error) {
-    console.error("Update lead error:", error);
-
-    if (error.name === "ValidationError") {
-      return sendValidationError(error, res);
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to update lead",
-    });
+    return sendError(res, error, "Unable to update lead");
   }
 };
 
-// Delete accessible lead
 const deleteLead = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    if (!isValidLeadId(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid lead ID",
-      });
-    }
-
-    const filter = buildLeadAccessFilter(req.user, id);
-
-    const lead = await Lead.findOneAndDelete(filter);
-
-    if (!lead) {
-      return res.status(404).json({
-        success: false,
-        message: "Lead not found or access denied",
-      });
-    }
-
-    await Promise.all([
-      Activity.deleteMany({
-        lead: lead._id,
-      }),
-      LeadNote.deleteMany({
-        lead: lead._id,
-      }),
-    ]);
+    await deleteLeadWithFollowUps({
+      user: req.user,
+      leadId: req.params.id,
+    });
 
     return res.status(200).json({
       success: true,
       message: "Lead deleted successfully",
     });
   } catch (error) {
-    console.error("Delete lead error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to delete lead",
-    });
+    return sendError(res, error, "Unable to delete lead");
   }
 };
 
