@@ -1,5 +1,12 @@
 const mongoose = require("mongoose");
 
+const FOLLOW_UP_TASK_EVENTS = [
+    "followup_created",
+    "followup_rescheduled",
+    "followup_completed",
+    "followup_cancelled",
+];
+
 // Activity model to track changes and actions performed on leads
 const activitySchema = new mongoose.Schema(
     {
@@ -15,6 +22,18 @@ const activitySchema = new mongoose.Schema(
             required: true,
         },
 
+        task: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Task",
+            default: null,
+            required: [
+                function () {
+                    return FOLLOW_UP_TASK_EVENTS.includes(this.type);
+                },
+                "A follow-up task event must reference its task",
+            ],
+        },
+
         type: {
             type: String,
             enum: [
@@ -26,6 +45,7 @@ const activitySchema = new mongoose.Schema(
                 "note_added",
                 "note_updated",
                 "note_deleted",
+                ...FOLLOW_UP_TASK_EVENTS,
             ],
             required: true,
         },
@@ -51,16 +71,8 @@ const activitySchema = new mongoose.Schema(
     }
 );
 
-activitySchema.index({
-    lead: 1,
-    createdAt: -1,
-});
+activitySchema.index({ lead: 1, createdAt: -1 });
+activitySchema.index({ performedBy: 1, createdAt: -1 });
+activitySchema.index({ task: 1, createdAt: -1 });
 
-activitySchema.index({
-    performedBy: 1,
-    createdAt: -1,
-});
-
-const Activity = mongoose.model("Activity", activitySchema);
-
-module.exports = Activity;
+module.exports = mongoose.models.Activity || mongoose.model("Activity", activitySchema);

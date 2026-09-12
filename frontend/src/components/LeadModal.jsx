@@ -9,15 +9,21 @@ const getInitialFormData = (lead) => ({
     source: lead?.source || "Other",
     status: lead?.status || "new",
     notes: lead?.notes || "",
-    nextFollowUp: lead?.nextFollowUp
-        ? new Date(lead.nextFollowUp)
-            .toISOString()
-            .split("T")[0]
-        : "",
+    nextFollowUp: "",
 });
 
-function LeadModal({
-    isOpen,
+function LeadModal(props) {
+    if (!props.isOpen) return null;
+
+    return (
+        <LeadForm
+            key={props.lead?._id || props.lead?.id || "create"}
+            {...props}
+        />
+    );
+}
+
+function LeadForm({
     lead,
     isSaving,
     error,
@@ -28,12 +34,13 @@ function LeadModal({
         () => getInitialFormData(lead)
     );
 
-    if (!isOpen) {
-        return null;
-    }
+    const [validationError, setValidationError] = useState("");
 
     const handleChange = (event) => {
         const { name, value } = event.target;
+
+        setValidationError("");
+
         setFormData((currentData) => ({
             ...currentData,
             [name]: value,
@@ -42,10 +49,39 @@ function LeadModal({
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-        await onSave({
-            ...formData,
-            nextFollowUp: formData.nextFollowUp || null,
-        });
+
+        if (isSaving) return;
+
+        setValidationError("");
+
+        // Existing-lead edits contain only general lead information.
+        const payload = {
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            source: formData.source,
+            status: formData.status,
+            notes: formData.notes,
+        };
+
+        try {
+            // Initial scheduling remains available when creating a lead.
+            if (!lead) {
+                const dueAt = formData.nextFollowUp
+                    ? new Date(formData.nextFollowUp) : null;
+
+                if (dueAt && Number.isNaN(dueAt.getTime())) {
+                    setValidationError("Enter a valid follow-up date and time");
+                    return;
+                }
+
+                payload.nextFollowUp = dueAt?.toISOString() ?? null;
+            }
+
+            await onSave(payload);
+        } catch (saveError) {
+            setValidationError(saveError?.message || "Unable to save lead");
+        }
     };
 
     return (
@@ -72,9 +108,11 @@ function LeadModal({
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5 p-6" >
-                    {error && (
-                        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                            {error}
+                    {(validationError || error) && (
+                        <div role="alert"
+                            className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                        >
+                            {validationError || error}
                         </div>
                     )}
 
@@ -151,17 +189,46 @@ function LeadModal({
                         </div>
 
                         <div>
-                            <label className="mb-2 block text-sm font-medium text-slate-700">
-                                Next follow-up
-                            </label>
+                            {lead ? (
+                                <>
+                                    <p className="mb-2 text-sm font-medium text-slate-700">
+                                        Next follow-up
+                                    </p>
 
-                            <input
-                                name="nextFollowUp"
-                                type="date"
-                                value={formData.nextFollowUp}
-                                onChange={handleChange}
-                                className="cursor-pointer w-full rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500"
-                            />
+                                    <p className="rounded-lg bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
+                                        {lead.nextFollowUp
+                                            ? new Date(lead.nextFollowUp).toLocaleString()
+                                            : "Not scheduled"}
+                                    </p>
+
+                                    <p className="mt-2 text-xs text-slate-500">
+                                        Follow-up dates are managed separately from lead details.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <label htmlFor="lead-first-follow-up"
+                                        className="mb-2 block text-sm font-medium text-slate-700"
+                                    >
+                                        First follow-up (optional)
+                                    </label>
+
+                                    <input
+                                        id="lead-first-follow-up"
+                                        name="nextFollowUp"
+                                        type="datetime-local"
+                                        step="60"
+                                        value={formData.nextFollowUp}
+                                        onChange={handleChange}
+                                        disabled={isSaving}
+                                        className="cursor-pointer w-full rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500"
+                                    />
+
+                                    <p className="mt-2 text-xs text-slate-500">
+                                        Uses your device's local time.
+                                    </p>
+                                </>
+                            )}
                         </div>
                     </div>
 
