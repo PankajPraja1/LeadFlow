@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LayoutDashboard, LogOut, Menu, Target, UserRound, X, } from "lucide-react";
+import { LayoutDashboard, ListTodo, LogOut, Menu, Target, UserRound, X, } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { NavLink, Outlet, useLocation, useNavigate, } from "react-router-dom";
 
@@ -10,6 +10,11 @@ const navigationItems = [
         label: "Dashboard & Leads",
         path: "/dashboard",
         icon: LayoutDashboard,
+    },
+    {
+        label: "Follow-ups & Tasks",
+        path: "/follow-ups",
+        icon: ListTodo,
     },
     {
         label: "Marketing Plans",
@@ -54,6 +59,7 @@ function AppLayout() {
     const pageTitle = pathname.startsWith("/leads/") ? "Lead Details"
         : {
             "/dashboard": "Dashboard & Leads",
+            "/follow-ups": "Follow-ups & Tasks",
             "/plans": "Marketing Plans",
             "/profile": "Profile & Security",
         }[pathname] || "Workspace";

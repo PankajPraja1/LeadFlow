@@ -10,7 +10,7 @@
 
 ## Overview
 
-LeadFlow is a full-stack, role-based CRM application for sales and marketing teams. It combines lead tracking, follow-up scheduling, pipeline analytics, interaction histories, and reusable marketing plans in one responsive workspace.
+LeadFlow is a full-stack, role-based CRM application for sales and marketing teams. It combines lead tracking, follow-up scheduling, personal tasks, pipeline analytics, interaction histories, and reusable marketing plans in one responsive workspace.
 
 The application uses a React and Redux Toolkit frontend, an Express REST API, MongoDB Atlas, JWT and Google authentication, record-level authorization, secure password recovery, and automated activity tracking. Both the frontend and backend are deployed on Vercel.
 
@@ -21,7 +21,7 @@ The application uses a React and Redux Toolkit frontend, an Express REST API, Mo
 
 ## Project Status
 
-**Version: v1.6.0 — email verification and authentication rate limits.**
+**Latest tagged release: v1.6.0 — email verification and authentication rate limits.**
 
 The email-verification and authentication rate-limit changes are merged into `main` and deployed to both Vercel production projects. Local automated/browser checks and production verification have passed.
 
@@ -29,11 +29,11 @@ Authentication, account security, lead management, pipeline analytics, follow-up
 
 The shared application layout, mobile navigation, and session recovery remain part of the deployed application. The roadmap below lists subsequent work.
 
-### In progress: v1.7.0 — Follow-ups and personal tasks
+### Preparing v1.7.0 — Follow-ups and personal tasks
 
-The Task API, owner-only personal tasks, lead-linked follow-ups, transactional lead-date synchronization, migration tooling, and lead-form compatibility changes have passed local automated and browser checks. Production rollout and shared-database initialization are pending.
+Implementation and local validation are complete for the dedicated Follow-ups workspace, personal-task actions, and scheduling multiple follow-ups from Lead Details. Backend integration checks, frontend lint/build, and the browser checks have passed. Shared-database initialization and its read-only audit also passed, with no unresolved leads or blockers at that checkpoint.
 
-The dedicated Follow-ups workspace is still in development. v1.7.0 has not been released.
+Production validation of the complete workspace and the v1.7.0 tag are pending. The features below describe the current implementation; the live application may not yet include the complete v1.7.0 interface.
 
 ## Features
 
@@ -47,7 +47,7 @@ The dedicated Follow-ups workspace is still in development. v1.7.0 has not been 
 - Google profile-picture support
 - Password hashing with bcryptjs
 - JWT-protected frontend and API routes
-- Role-based access using `admin`, `leader`, and `member`
+- System roles: `admin`, `leader`, `member`, and `viewer`, with resource-specific permissions described below
 - Active-user checks and persistent authenticated sessions
 - Session verification with retry after temporary API failures
 - Recovery from invalid sessions without treating temporary network errors as logout
@@ -69,6 +69,24 @@ The dedicated Follow-ups workspace is still in development. v1.7.0 has not been 
 - Dedicated lead-detail pages
 - Ownership-aware access for assigned leads
 
+### Follow-ups and personal tasks
+
+- Protected **Follow-ups & Tasks** workspace at `/follow-ups`
+- Today, Overdue, Upcoming, All pending, No date, Completed, and Cancelled views
+- Search task titles/descriptions, filter by task type, and paginate results
+- Create personal tasks with an optional due date and time
+- Schedule multiple separate follow-ups from an accessible lead's details page
+- Edit pending tasks, reschedule them, record completion outcomes, or cancel them
+- Retain completed and cancelled task history; filter completed work by Today or Yesterday
+- Display dates in the device's local timezone and send UTC timestamps to the API
+- Keep each lead's next follow-up synchronized with its earliest pending task
+- Record lead follow-up scheduling, rescheduling, completion, and cancellation in the activity timeline
+- Restrict task records to their owner, including for admins and leaders
+- Give viewers read access within their scope, with no lead, note, or task mutation controls
+- Reject stale task changes using version checks and refresh the task before another edit
+
+Task types are fixed when created. Completing a follow-up preserves it as history; scheduling the next conversation creates a separate task. Team task assignment and scheduled reminder delivery are planned features.
+
 ### Marketing-plan management
 
 - Create reusable marketing and lead-conversion plans
@@ -89,10 +107,12 @@ The dedicated Follow-ups workspace is still in development. v1.7.0 has not been 
 - KPI cards for every pipeline stage
 - Conversion-rate, upcoming follow-up, and overdue follow-up analytics
 
+Dashboard follow-up metrics count leads using their next pending follow-up date. The Follow-ups workspace counts task records; several tasks can belong to one lead, so these totals can differ.
+
 ### User experience
 
 - Responsive React and Tailwind CSS interface
-- Shared protected layout for Dashboard and Leads, Marketing Plans, and Profile
+- Shared protected layout for Dashboard and Leads, Follow-ups & Tasks, Marketing Plans, and Profile
 - Responsive desktop navigation and a mobile navigation drawer
 - Keyboard focus handling and focus restoration for the mobile drawer
 - Consistent page headings and shared profile/logout controls
@@ -117,7 +137,13 @@ Email/password registration creates a pending account and directs the user to em
 
 Google sign-in verifies the ID token and applies the account-linking and email-ownership checks before issuing a session. A matching email alone does not activate an existing unverified password account.
 
-Authenticated users can manage leads, open a lead's notes and activity history, browse marketing-plan templates, and update their profile. Leads hold the next follow-up date, while plans store reusable pitches and follow-up steps. Tracking each person's progress through a plan is planned work.
+Authenticated users can manage records within their access scope, open a lead's notes and activity history, browse marketing-plan templates, and update their profile.
+
+Tasks are the source of truth for follow-ups. Each lead's `nextFollowUp` is a cached value of its earliest pending follow-up, updated with the task and activity records in a MongoDB transaction. Completing, cancelling, or rescheduling that task recalculates the next date; no pending follow-ups means a null date. Personal tasks are separate and do not create lead activity.
+
+New tasks belong to the user creating them. Scheduling a follow-up on another accessible user's lead does not assign that task to the lead owner. Imported legacy follow-ups retain the lead's assigned user. Team assignment controls are planned.
+
+Marketing plans store reusable pitches and follow-up steps. Tracking each person's progress through a plan is planned work.
 
 Changing an email address requires the current password. The new address stays pending until verified, and the user can cancel the request from Profile. A Google-only account must first set a password through password recovery to use this flow. Completing a reset or email verification requires a fresh sign-in.
 
@@ -145,11 +171,11 @@ Authenticated routes require an active, email-verified account and a current JWT
 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
-| POST | `/api/leads` | Authenticated | Create a lead |
+| POST | `/api/leads` | Admin/Leader/Member | Create a lead |
 | GET | `/api/leads` | Authenticated | List accessible leads |
 | GET | `/api/leads/:id` | Authorized | Retrieve one lead |
-| PATCH | `/api/leads/:id` | Authorized | Update a lead |
-| DELETE | `/api/leads/:id` | Authorized | Delete a lead and related records |
+| PATCH | `/api/leads/:id` | Authorized Admin/Leader/Member | Update a lead |
+| DELETE | `/api/leads/:id` | Authorized Admin/Leader/Member | Delete a lead and related records |
 
 Supported queries include `status` and `search`:
 
@@ -158,6 +184,35 @@ GET /api/leads?status=qualified
 GET /api/leads?search=Amit
 GET /api/leads?status=new&search=Sharma
 ```
+
+Lead creation can include an initial `nextFollowUp` date and creates its corresponding task. General lead edits omit this field; schedule or change subsequent follow-ups through the Task API. A changed legacy `nextFollowUp` value in a lead PATCH is rejected. Deleting a lead removes its linked tasks, notes, and activity; personal tasks are unaffected.
+
+### Tasks
+
+All routes require authentication. Read access is owner-only for every role, with an additional lead-access check for linked follow-ups. Writes require `admin`, `leader`, or `member`; the server chooses the owner and creator.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/tasks` | Search, filter, and paginate the current user's accessible tasks |
+| POST | `/api/tasks` | Create a personal task or a lead follow-up |
+| GET | `/api/tasks/:id` | Retrieve one accessible task |
+| PATCH | `/api/tasks/:id` | Edit a pending task's title, description, or due date |
+| POST | `/api/tasks/:id/complete` | Complete a pending task and save an optional outcome |
+| POST | `/api/tasks/:id/cancel` | Cancel a pending task while retaining its history |
+
+Creation accepts `title`, optional `description`, `kind`, `dueAt`, and `leadId` where applicable. `kind=personal` permits no due date and no lead; `kind=follow_up` requires both `leadId` and `dueAt`. The type, lead, and owner cannot be changed through task editing.
+
+Task responses include a numeric `version`. Include that current version in every PATCH, complete, or cancel request. Completion also accepts `completionNote`. Stale versions or attempts to change a terminal task return HTTP `409`; completed and cancelled tasks cannot be reopened or edited through this API.
+
+List queries support `status`, `kind`, `leadId`, `search`, `page`, `limit`, `dueFrom`, `dueBefore`, `completedFrom`, `completedBefore`, and `undated`. The defaults are pending tasks, all kinds, page 1, and 20 rows; the maximum limit is 50. `search` matches titles and descriptions. Date ranges use UTC ISO timestamps ending in `Z`, inclusive `From` bounds, and exclusive `Before` bounds. Completion ranges require `status=completed`.
+
+```text
+GET /api/tasks?status=pending&kind=follow_up&page=1&limit=12
+GET /api/tasks?status=pending&kind=personal&undated=true
+GET /api/tasks?status=completed&search=webinar
+```
+
+List responses contain `tasks` and `pagination`; single-task and write responses contain `task`, alongside `success`.
 
 ### Marketing plans
 
@@ -180,12 +235,14 @@ GET /api/plans?status=draft&page=1&limit=10
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
 | GET | `/api/leads/:id/notes` | Authorized | List interaction notes |
-| POST | `/api/leads/:id/notes` | Authorized | Add an interaction note |
+| POST | `/api/leads/:id/notes` | Authorized Admin/Leader/Member | Add an interaction note |
 | PATCH | `/api/leads/:id/notes/:noteId` | Author/Admin/Leader | Edit a note |
 | DELETE | `/api/leads/:id/notes/:noteId` | Author/Admin/Leader | Delete a note |
 | GET | `/api/leads/:id/activities` | Authorized | Retrieve lead activity |
 | GET | `/api/dashboard/stats` | Authenticated | Retrieve dashboard KPIs |
 | GET | `/api/health` | Public | Check API health |
+
+Note mutations also require an Admin/Leader/Member role and the existing lead/note access checks. Viewers cannot create, edit, or delete notes, including notes they previously authored.
 
 ## Getting Started
 
@@ -193,7 +250,7 @@ GET /api/plans?status=draft&page=1&limit=10
 
 - Node.js 20.19+
 - npm
-- MongoDB or MongoDB Atlas
+- A MongoDB Atlas cluster or another MongoDB replica set/sharded deployment that supports transactions
 - Google OAuth web client
 - A Gmail sender with a Google App Password for verification and recovery email delivery
 
@@ -216,13 +273,15 @@ Create `backend/.env`:
 
 ```env
 PORT=5000
-MONGODB_URI=mongodb://127.0.0.1:27017/leadflow
+MONGODB_URI=your_transaction_capable_mongodb_connection_string
 JWT_SECRET=replace_with_a_long_random_secret
 CLIENT_URL=http://localhost:5173
 GOOGLE_CLIENT_ID=your_google_web_client_id
 EMAIL_USER=your_support_account@gmail.com
 EMAIL_APP_PASSWORD=your_google_app_password
 ```
+
+The follow-up and lead-write services require MongoDB transactions; a standalone local MongoDB server is not sufficient. Use a separate development database for new installations and experiments. The existing project's shared-database initialization is described below.
 
 ### Frontend environment
 
@@ -264,6 +323,17 @@ npm run test:rate-limit
 
 `npm test` runs 28 email-verification and account-security tests with mocked database and external-service dependencies. `npm run test:rate-limit` uses the MongoDB connection configured in `backend/.env`; run it against a development database. It checks IP normalization, concurrent counting across limiter instances, persistence across instances, window rollover, and storage-failure handling. It deletes only its own uniquely scoped test counters and sends no emails.
 
+The Follow-ups integration checks also run from `backend`:
+
+```bash
+node test/followUpService.integration.cjs
+node test/leadWriteService.integration.cjs
+node test/taskApi.integration.cjs
+node test/followUpMigration.integration.cjs
+```
+
+These four scripts use the configured cluster with separate, randomly named temporary databases and clean up their own test collections. The database credentials must permit those test databases and the topology must support transactions. They cover rollback, concurrent changes, single legacy import, lead-date synchronization, ownership and viewer rules, version conflicts, lead deletion, and migration behavior.
+
 From `frontend`:
 
 ```bash
@@ -271,9 +341,23 @@ npm run lint
 npm run build
 ```
 
-Local checks completed for this release include registration/verification, resend and token reuse, pending-email confirmation/cancellation, older-account verification, password reset across sessions, unverified-account recovery, unknown-email responses, and Google sign-in.
+For v1.7.0, backend integration checks and frontend lint/build passed locally. Browser validation covered protected navigation, filters, personal-task creation/editing, completion outcomes and persistence, cancellation, discarded drafts, stale edits across tabs, and scheduling multiple lead follow-ups. Completing the earliest follow-up advanced the lead's next date and retained the activity history. Viewer scheduling controls were absent.
 
-Production checks passed for registration and verification email delivery, production email links, rejection of reused verification tokens, older-account access and data preservation, password recovery across sessions, pending-email cancellation, Google sign-in, and protected-page refresh.
+The previous v1.6.0 production checks passed for registration and verification email delivery, production email links, rejection of reused verification tokens, older-account access and data preservation, password recovery across sessions, pending-email cancellation, Google sign-in, and protected-page refresh. Production validation of the complete v1.7.0 workspace remains pending.
+
+### Existing follow-up dates
+
+The migration turns a legacy lead date into one pending follow-up task and marks initialization, including for leads without a date. It preserves the original date and does not invent completed history. New leads are initialized by the current write service.
+
+To inspect the configured database without writing, run from `backend`:
+
+```bash
+node scripts/migrateFollowUps.cjs
+```
+
+The existing local and Vercel instances share the Atlas database `leadflow`. Its initialization and subsequent audit already passed with no remaining work or blockers at the migration checkpoint. Further workspace deployment does not require applying that migration again.
+
+For a different database that still has legacy records, review the audit before planning a controlled migration. Apply mode requires the explicit database name, a verified active admin actor, and confirmation that legacy writers have stopped. Updating the write paths and coordinating all instances must precede that migration; ordinary reads do not migrate records.
 
 ## Authentication Rate Limits
 
@@ -301,30 +385,40 @@ The existing setup uses two projects, with `frontend` and `backend` as their res
 
 In the backend project's Environment Variables settings, enable **Enable access to System Environment Variables**. This exposes `VERCEL=1`, which the limiter uses to select Vercel's `x-vercel-forwarded-for` header. Local execution uses the socket address. Keep `VERCEL` out of the local development `.env`. See [Vercel system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
 
-The backend exports its Express app from `src/app.js`, a supported Vercel entry point; this release does not require a backend `vercel.json`. Keep the frontend's existing SPA rewrite so direct links to `/verify-email` and `/reset-password/:token` load React. See [Express on Vercel](https://vercel.com/docs/frameworks/backend/express).
+The backend exports its Express app from `src/app.js`, a supported Vercel entry point; this release does not require a backend `vercel.json`. Keep the frontend's existing SPA rewrite so direct links to `/follow-ups`, lead details, `/verify-email`, and `/reset-password/:token` load React. See [Express on Vercel](https://vercel.com/docs/frameworks/backend/express).
 
-Environment changes require new deployments. Deploy both projects from the same reviewed commit, then verify production registration, email links, sign-in, recovery, and protected-page refresh before tagging the release. Separate projects can finish deploying at different times, so confirm both are Ready before testing. See [Vercel environment variables](https://vercel.com/docs/environment-variables).
+Merging the reviewed feature branch into the configured production branch, `main`, triggers production deployments through the existing Git integration. Confirm both projects use the intended commit and are Ready before testing. If a project skips the commit, create a deployment from that same Git reference. See [Vercel Git deployments](https://vercel.com/docs/git).
+
+This workspace feature introduces no new environment variables. Any changes to existing environment variables apply only to new deployments. See [Vercel environment variables](https://vercel.com/docs/environment-variables).
+
+Before tagging v1.7.0, verify protected `/follow-ups` refresh, personal-task persistence and completion, cancellation, multiple scheduled lead follow-ups, earliest-date advancement, retained activity, and viewer/owner boundaries on the production URLs. Use test records under accounts you control. Confirm the browser calls the production `/api/tasks` endpoint, and check the existing Dashboard, Plans, Profile, and sign-in flows. After production checks pass, record their outcome in this README before creating the tag.
 
 Existing password accounts without recorded email verification must verify their address before signing in; account data is preserved. Do not mark all existing accounts verified as a migration shortcut. Password-reset links issued before the new email-binding checks need to be requested again. Preview testing should use a development database and matching preview frontend/API URLs.
 
 ## Authorization Model
 
-| Role | Current behaviour |
-| --- | --- |
-| Admin | Manages all leads, notes, and marketing plans |
-| Leader | Has broad lead access under the current access helper; creates and manages owned plans |
-| Member | Accesses assigned leads and active plans; manages authored notes |
+| Role | Lead and note scope | Task scope | Marketing plans |
+| --- | --- | --- | --- |
+| Admin | Manages all leads and notes | Own tasks only; linked tasks also require lead access | Manages every plan |
+| Leader | Broad lead/note access under the current helper | Own tasks only; linked tasks also require lead access | Creates and manages owned plans |
+| Member | Assigned leads and authored notes within that lead scope | Own tasks only; linked lead must remain accessible | Active plans |
+| Viewer | Reads assigned leads and their notes/activity; no mutations | Reads own accessible tasks; no mutations | Broader viewer plan policy remains to be reviewed |
 
 New registrations receive the `member` role. System roles are assigned by the backend and cannot be selected through public registration.
 
-Access based on actual team membership and sponsor relationships is planned. The current shared-lead permission does not represent an implemented upline/downline hierarchy. The `viewer` value exists in the User model; complete read-only endpoint coverage remains part of the access-control review.
+Task ownership restrictions apply to admins and leaders too; broad lead access does not grant access to another user's personal tasks or task records. The server rechecks the current lead scope for linked tasks before returning records or counts and before accepting writes.
+
+Access based on actual team membership and sponsor relationships is planned. The current broad lead permission does not represent an implemented upline/downline hierarchy. The viewer checks described here cover leads, notes, and tasks; they do not claim a complete application-wide viewer audit.
 
 ## Security
 
 - Protected endpoints require a valid, current JWT and verified email ownership
 - Google ID tokens are verified against the configured OAuth Client ID
 - Authenticated users must still exist and remain active
-- Lead, plan, and note access is enforced server-side
+- Lead, plan, note, and task access is enforced server-side
+- Task ownership is enforced before list counts and pagination; linked tasks also require current lead access
+- Task edits, completion, and cancellation require the current document version
+- Related follow-up tasks, lead dates, and activities are written in MongoDB transactions
 - MongoDB IDs are validated before database operations
 - MongoDB, JWT, and email credentials remain backend-only
 - CORS restricts browser access to the configured frontend origin
@@ -336,6 +430,18 @@ Access based on actual team membership and sponsor relationships is planned. The
 - MongoDB-backed rate limits apply to authentication writes, with additional sign-in, email-request, and account-change limits
 
 ## Version History
+
+### v1.7.0 — unreleased
+
+- Added the protected Follow-ups & Tasks workspace and shared navigation
+- Added personal tasks, date/type/search filters, and pagination
+- Added pending-task editing, rescheduling, completion outcomes, and cancellation history
+- Added multiple follow-up scheduling from Lead Details
+- Added the owner-scoped Task API, viewer write restrictions, and stale-edit checks
+- Synchronized the earliest pending lead date and task activity through transactions
+- Added migration tooling and completed the existing shared-database initialization
+- Passed local integration, frontend lint/build, and browser checks
+- Pending: complete-workspace production validation, final release documentation, and tag
 
 ### v1.6.0
 
@@ -392,7 +498,7 @@ Access based on actual team membership and sponsor relationships is planned. The
 
 ## Roadmap
 
-- Dedicated Follow-ups workspace with completion history and personal tasks
+- Finish v1.7.0 production validation and release for the implemented Follow-ups workspace
 - Automated email reminders and in-app notifications
 - Program-specific ranks, memberships, sponsor trees, and scoped lead assignments
 - Account archival with preserved activity attribution and ownership reassignment

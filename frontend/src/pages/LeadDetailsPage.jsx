@@ -2,10 +2,12 @@ import { ArrowLeft, CalendarDays, Clock3, Mail, MapPin, Pencil, Phone, Plus, Ref
 
 import { useEffect, useState, } from "react";
 import { useDispatch, useSelector, } from "react-redux";
-import { useNavigate, useParams, } from "react-router-dom";
+import { Link, useNavigate, useParams, } from "react-router-dom";
 import LeadModal from "../components/LeadModal";
 import { deleteLead, updateLead, } from "../features/crm/crmSlice";
 import { clearLeadDetails, createLeadNote, deleteLeadNote, fetchLeadDetails, updateLeadNote, } from "../features/leads/leadDetailsSlice";
+import TaskActionDialog from "../components/tasks/TaskActionDialog";
+import { clearTaskFeedback, } from "../features/tasks/taskSlice";
 
 // Define styles for different lead statuses
 const statusStyles = {
@@ -147,6 +149,8 @@ function LeadDetailsPage() {
     const [editingNoteId, setEditingNoteId] = useState(null);
     const [editingNoteContent, setEditingNoteContent] = useState("");
     const [isEditModalOpen, setIsEditModalOpen,] = useState(false);
+    const [followUpDialog, setFollowUpDialog] = useState(null);
+    const [followUpNotice, setFollowUpNotice] = useState(null);
 
     const {
         lead,
@@ -159,8 +163,55 @@ function LeadDetailsPage() {
 
     const { isSavingLead, error: crmError, } = useSelector((state) => state.crm);
 
-    const { user } = useSelector((state) => state.auth);
+    const {
+        user,
+        token,
+        isCheckingAuth,
+        authCheckError, } = useSelector((state) => state.auth);
+
+    const { mutationStatus } = useSelector((state) => state.tasks);
+
     const canEditLead = canWriteLead(user);
+
+    const userId = user?.id ?? user?._id;
+
+    const sessionKey = JSON.stringify([
+        token,
+        userId,
+        user?.systemRole,
+    ]);
+
+    const followUpScope = JSON.stringify([
+        sessionKey,
+        leadId,
+    ]);
+
+    const followUpMessage = followUpNotice === followUpScope
+        ? "Follow-up scheduled. You can manage it in Follow-ups & Tasks." : "";
+
+    const assignedUserId =
+        lead?.assignedTo?._id ??
+        lead?.assignedTo?.id ??
+        lead?.assignedTo;
+
+    const canScheduleFollowUp = Boolean(
+        canEditLead &&
+        token &&
+        user?.isEmailVerified === true &&
+        user?.isActive !== false &&
+        !isCheckingAuth &&
+        !authCheckError &&
+        !isLoading &&
+        !detailsError &&
+        lead?._id === leadId &&
+        (
+            ["admin", "leader"].includes(user?.systemRole) ||
+            (
+                userId &&
+                String(assignedUserId) === String(userId)
+            )
+        )
+    );
 
     useEffect(() => {
         dispatch(fetchLeadDetails(leadId));
@@ -168,6 +219,44 @@ function LeadDetailsPage() {
             dispatch(clearLeadDetails());
         };
     }, [dispatch, leadId]);
+
+    const openFollowUp = () => {
+        if (!canScheduleFollowUp ||
+            mutationStatus === "loading" ||
+            isSavingLead ||
+            isNoteSaving
+        ) {
+            return;
+        }
+
+        dispatch(clearTaskFeedback());
+        setFollowUpNotice(null);
+
+        setFollowUpDialog({
+            scope: followUpScope,
+            lead: {
+                _id: lead._id,
+                name: lead.name,
+            },
+        });
+    };
+
+    const followUpSaved = () => {
+        setFollowUpDialog(null);
+        setFollowUpNotice(followUpScope);
+
+        // The task was saved. Reload the lead date and timeline.
+        dispatch(fetchLeadDetails(leadId));
+    };
+
+    const closeFollowUp = () => {
+        setFollowUpDialog(null);
+
+        // Re-read after a failed or uncertain request.
+        if (mutationStatus === "failed") {
+            dispatch(fetchLeadDetails(leadId));
+        }
+    };
 
     // Handle adding a new note for the lead
     const handleAddNote = async (event) => {
@@ -308,6 +397,16 @@ function LeadDetailsPage() {
                         Lead unavailable
                     </h1>
 
+                    {followUpMessage && (
+                        <div className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
+                            <p role="status">{followUpMessage}</p>
+
+                            <button type="button" onClick={() => dispatch(fetchLeadDetails(leadId))} className="mt-2 cursor-pointer font-semibold underline" >
+                                Retry loading details
+                            </button>
+                        </div>
+                    )}
+
                     <p className="mt-2 text-sm text-slate-500">
                         {detailsError || "This lead could not be found."}
                     </p>
@@ -336,6 +435,13 @@ function LeadDetailsPage() {
             {/* </header> */}
 
             <main className="mx-auto max-w-7xl px-5 py-8 pt-2">
+
+                {followUpMessage && (
+                    <p role="status" className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700" >
+                        {followUpMessage}
+                    </p>
+                )}
+
                 {(detailsError || crmError) && (
                     <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                         {detailsError || crmError}
@@ -345,7 +451,7 @@ function LeadDetailsPage() {
                 <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <div className="flex flex-wrap items-center gap-3">
-                            <h1 className="text-3xl font-bold text-slate-900">
+                            <h1 id="lead-details-heading" tabIndex={-1} className="text-3xl font-bold text-slate-900" >
                                 {lead.name}
                             </h1>
 
@@ -446,6 +552,41 @@ function LeadDetailsPage() {
 
                                         <p className="mt-1 text-sm font-medium text-slate-700">
                                             {formatDateTime(lead.nextFollowUp) || "Not scheduled"}
+                                        </p>
+
+                                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                                            {canScheduleFollowUp && (
+                                                <button type="button" onClick={openFollowUp}
+                                                    disabled={
+                                                        mutationStatus === "loading" ||
+                                                        isSavingLead ||
+                                                        isNoteSaving
+                                                    }
+                                                    className="cursor-pointer rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    Schedule follow-up
+                                                </button>
+                                            )}
+
+                                            <Link to="/follow-ups" className="text-sm font-semibold text-blue-700 hover:underline" >
+                                                Open Follow-ups & Tasks
+                                            </Link>
+
+                                            <button type="button" onClick={() => dispatch(fetchLeadDetails(leadId))}
+                                                disabled={
+                                                    isLoading ||
+                                                    mutationStatus === "loading" ||
+                                                    isSavingLead ||
+                                                    isNoteSaving
+                                                }
+                                                className="cursor-pointer text-sm font-semibold text-slate-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                {isLoading ? "Refreshing..." : "Refresh details"}
+                                            </button>
+                                        </div>
+
+                                        <p className="mt-2 text-xs text-slate-500">
+                                            Shows the earliest pending follow-up for this lead.
                                         </p>
                                     </div>
                                 </div>
@@ -653,6 +794,19 @@ function LeadDetailsPage() {
                     </section>
                 </div>
             </main>
+
+            {canScheduleFollowUp &&
+                followUpDialog?.scope === followUpScope && (
+                    <TaskActionDialog
+                        key={followUpScope}
+                        mode="schedule"
+                        lead={followUpDialog.lead}
+                        sessionKey={sessionKey}
+                        focusReturnId="lead-details-heading"
+                        onClose={closeFollowUp}
+                        onSaved={followUpSaved}
+                    />
+                )}
 
             {canEditLead && isEditModalOpen && (
                 <LeadModal

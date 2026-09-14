@@ -15,6 +15,7 @@ import PlansPage from "./pages/PlansPage";
 import ProfilePage from "./pages/ProfilePage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import FollowUpsPage from "./pages/FollowUpsPage";
 
 // App component that sets up the routing for the application. It checks for a valid token and fetches the current user if the token exists. It defines routes for login, registration, dashboard, lead details, and profile pages, with protected routes for authenticated access.
 function App() {
@@ -68,6 +69,11 @@ function App() {
         <Route
           path="/leads/:leadId"
           element={<LeadDetailsPage />}
+        />
+
+        <Route
+          path="/follow-ups"
+          element={<FollowUpsPage />}
         />
 
         <Route
