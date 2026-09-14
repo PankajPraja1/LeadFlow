@@ -21,19 +21,15 @@ The application uses a React and Redux Toolkit frontend, an Express REST API, Mo
 
 ## Project Status
 
-**Latest tagged release: v1.6.0 — email verification and authentication rate limits.**
+**Version: v1.7.0 — Follow-ups and personal tasks.**
 
-The email-verification and authentication rate-limit changes are merged into `main` and deployed to both Vercel production projects. Local automated/browser checks and production verification have passed.
+The Follow-ups workspace, personal-task actions, and scheduling from Lead Details are merged into `main` and deployed to both Vercel production projects. Backend integration checks, frontend lint/build, and local browser checks passed. Production deployment and browser verification were confirmed on 14 September 2026.
 
-Authentication, account security, lead management, pipeline analytics, follow-up scheduling, lead-detail pages, interaction notes, activity history, and marketing-plan management are implemented and deployed.
+Authentication, account security, lead management, pipeline analytics, lead-detail pages, interaction notes, activity history, and marketing-plan management remain part of the deployed application.
 
-The shared application layout, mobile navigation, and session recovery remain part of the deployed application. The roadmap below lists subsequent work.
+The shared application layout includes Follow-ups & Tasks alongside Dashboard, Marketing Plans, and Profile, with responsive navigation and session recovery.
 
-### Preparing v1.7.0 — Follow-ups and personal tasks
-
-Implementation and local validation are complete for the dedicated Follow-ups workspace, personal-task actions, and scheduling multiple follow-ups from Lead Details. Backend integration checks, frontend lint/build, and the browser checks have passed. Shared-database initialization and its read-only audit also passed, with no unresolved leads or blockers at that checkpoint.
-
-Production validation of the complete workspace and the v1.7.0 tag are pending. The features below describe the current implementation; the live application may not yet include the complete v1.7.0 interface.
+Shared-database follow-up initialization and its read-only audit passed, with no unresolved leads or blockers at that checkpoint. The roadmap below lists subsequent work.
 
 ## Features
 
@@ -343,7 +339,9 @@ npm run build
 
 For v1.7.0, backend integration checks and frontend lint/build passed locally. Browser validation covered protected navigation, filters, personal-task creation/editing, completion outcomes and persistence, cancellation, discarded drafts, stale edits across tabs, and scheduling multiple lead follow-ups. Completing the earliest follow-up advanced the lead's next date and retained the activity history. Viewer scheduling controls were absent.
 
-The previous v1.6.0 production checks passed for registration and verification email delivery, production email links, rejection of reused verification tokens, older-account access and data preservation, password recovery across sessions, pending-email cancellation, Google sign-in, and protected-page refresh. Production validation of the complete v1.7.0 workspace remains pending.
+Production checks for v1.7.0 passed on 14 September 2026: protected `/follow-ups` refresh and production API routing; personal-task editing, completion outcomes, persistence, and cancellation; multiple lead follow-ups, earliest-date advancement, and retained activity; stale edits across tabs; owner isolation and viewer controls; existing Dashboard, Plans, Profile, mobile navigation, and logout protection.
+
+The previous v1.6.0 production checks passed for registration and verification email delivery, production email links, rejection of reused verification tokens, older-account access and data preservation, password recovery across sessions, pending-email cancellation, Google sign-in, and protected-page refresh.
 
 ### Existing follow-up dates
 
@@ -391,7 +389,7 @@ Merging the reviewed feature branch into the configured production branch, `main
 
 This workspace feature introduces no new environment variables. Any changes to existing environment variables apply only to new deployments. See [Vercel environment variables](https://vercel.com/docs/environment-variables).
 
-Before tagging v1.7.0, verify protected `/follow-ups` refresh, personal-task persistence and completion, cancellation, multiple scheduled lead follow-ups, earliest-date advancement, retained activity, and viewer/owner boundaries on the production URLs. Use test records under accounts you control. Confirm the browser calls the production `/api/tasks` endpoint, and check the existing Dashboard, Plans, Profile, and sign-in flows. After production checks pass, record their outcome in this README before creating the tag.
+For subsequent releases, verify protected `/follow-ups` refresh, personal-task persistence and completion, cancellation, multiple scheduled lead follow-ups, earliest-date advancement, retained activity, and viewer/owner boundaries on the production URLs. Use test records under accounts you control. Confirm the browser calls the production `/api/tasks` endpoint, and check the existing Dashboard, Plans, Profile, and sign-in flows. Record the verification result in the release documentation before creating its tag. The v1.7.0 results are recorded above.
 
 Existing password accounts without recorded email verification must verify their address before signing in; account data is preserved. Do not mark all existing accounts verified as a migration shortcut. Password-reset links issued before the new email-binding checks need to be requested again. Preview testing should use a development database and matching preview frontend/API URLs.
 
@@ -431,7 +429,7 @@ Access based on actual team membership and sponsor relationships is planned. The
 
 ## Version History
 
-### v1.7.0 — unreleased
+### v1.7.0
 
 - Added the protected Follow-ups & Tasks workspace and shared navigation
 - Added personal tasks, date/type/search filters, and pagination
@@ -441,7 +439,7 @@ Access based on actual team membership and sponsor relationships is planned. The
 - Synchronized the earliest pending lead date and task activity through transactions
 - Added migration tooling and completed the existing shared-database initialization
 - Passed local integration, frontend lint/build, and browser checks
-- Pending: complete-workspace production validation, final release documentation, and tag
+- Completed Vercel production validation, including owner isolation, viewer controls, task history, and protected navigation
 
 ### v1.6.0
 
@@ -498,7 +496,6 @@ Access based on actual team membership and sponsor relationships is planned. The
 
 ## Roadmap
 
-- Finish v1.7.0 production validation and release for the implemented Follow-ups workspace
 - Automated email reminders and in-app notifications
 - Program-specific ranks, memberships, sponsor trees, and scoped lead assignments
 - Account archival with preserved activity attribution and ownership reassignment
