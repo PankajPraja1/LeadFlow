@@ -1,11 +1,13 @@
 import { useEffect } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 
 import AppLayout from "./components/layout/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { getCurrentUser } from "./features/auth/authSlice";
 
+import HomePage from "./pages/HomePage";
+import NotFoundPage from "./pages/NotFoundPage";
 import DashboardPage from "./pages/DashboardPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -89,11 +91,11 @@ function App() {
 
       <Route
         path="/"
-        element={<Navigate to="/dashboard" replace />} />
+        element={<HomePage />} />
 
       <Route
         path="*"
-        element={<Navigate to="/dashboard" replace />} />
+        element={<NotFoundPage />} />
 
     </Routes>
   );

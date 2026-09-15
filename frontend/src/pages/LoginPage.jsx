@@ -66,11 +66,11 @@ function LoginPage() {
         <main className="flex min-h-screen bg-slate-100">
             <section className="hidden w-1/2 bg-blue-700 p-12 text-white lg:flex lg:flex-col lg:justify-between">
                 <div className="flex items-center gap-3">
-                    <img
-                        src="/leadflow-logo.svg"
-                        alt="LeadFlow logo"
-                        className="h-10 w-10 object-contain bg-white rounded-lg"
-                    />
+                    <Link to="/" aria-label="LeadFlow home"
+                        className=" inline-flex rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-700"
+                    >
+                        <img src="/leadflow-logo.svg" alt="LeadFlow logo" className="h-10 w-10 object-contain bg-white rounded-lg" />
+                    </Link>
 
                     <span className="text-2xl font-bold">
                         LeadFlow
@@ -83,8 +83,7 @@ function LoginPage() {
                     </p>
 
                     <p className="mt-5 max-w-md text-blue-100">
-                        Organize follow-ups, monitor your pipeline and
-                        improve team productivity from one dashboard.
+                        Organize follow-ups, monitor your pipeline and improve team productivity from one dashboard.
                     </p>
                 </div>
 
@@ -99,6 +98,13 @@ function LoginPage() {
                         <p className="font-semibold text-blue-700 lg:hidden">
                             LeadFlow
                         </p>
+
+                        <Link to="/"
+                            className="mb-5 inline-flex items-center gap-2 rounded text-sm font-semibold text-blue-700 hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-700"
+                        >
+                            <span aria-hidden="true">←</span>
+                            Back to home
+                        </Link>
 
                         <h2 className="mt-2 text-3xl font-bold text-slate-900">
                             Welcome back

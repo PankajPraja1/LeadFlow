@@ -21,7 +21,9 @@ The application uses a React and Redux Toolkit frontend, an Express REST API, Mo
 
 ## Project Status
 
-**Version: v1.7.0 — Follow-ups and personal tasks.**
+**Latest tagged release: v1.7.0 — Follow-ups and personal tasks.**
+
+**Release candidate: v1.8.0 — Public homepage and interactive demo.** Local homepage, game, navigation, missing-page, support-contact, and custom-font checks have passed, along with frontend lint and build. Sharing artwork and product-sharing metadata are included. Production deployment and verification remain before finalizing the release and tagging v1.8.0.
 
 The Follow-ups workspace, personal-task actions, and scheduling from Lead Details are merged into `main` and deployed to both Vercel production projects. Backend integration checks, frontend lint/build, and local browser checks passed. Production deployment and browser verification were confirmed on 14 September 2026.
 
@@ -32,6 +34,26 @@ The shared application layout includes Follow-ups & Tasks alongside Dashboard, M
 Shared-database follow-up initialization and its read-only audit passed, with no unresolved leads or blockers at that checkpoint. The roadmap below lists subsequent work.
 
 ## Features
+
+### Public homepage — v1.8.0, unreleased
+
+- Public `/` route for visitors and signed-in users
+- The Next Move: three fictional lead conversations with choices, feedback, a score, and replay
+- Interactive previews of leads, personal tasks/follow-ups, marketing-plan templates, and activity history
+- Registration and login links for visitors, with a dashboard shortcut for a checked, active, verified session
+- Consistent Home links on the LeadFlow logos in the workspace and authentication pages
+- Public missing-page screen with Home and login/dashboard links
+- Responsive layout, keyboard navigation, and reduced-motion support
+- Default page metadata and Open Graph/X card metadata with a 1200 × 630 PNG
+- Public support contact: [leadflow.support.help@gmail.com](mailto:leadflow.support.help@gmail.com)
+- Expandable support options with a Gmail compose link, email-app link, and selectable address
+- Plus Jakarta Sans variable font for the interface, bundled locally through Fontsource
+
+The challenge uses fictional data held in browser memory. It does not create leads or tasks, send messages, or modify an account. Its score is a demo result, not a prediction of sales or earnings. Email support expands contact options. Visitors can open Gmail in a new tab, use their configured email application, or copy the displayed address. Gmail may require sign-in, and the visitor reviews and sends their own message. The Gmail compose URL is a convenience link, not an application API dependency.
+
+The frontend imports `@fontsource-variable/plus-jakarta-sans/wght.css` and `src/styles/typography.css` after its existing global stylesheet in `src/main.jsx`. The shared font variables cover normal interface text and Tailwind's `font-sans` utility. The homepage uses the shared sans-serif family alongside its existing serif accents. Existing image assets contain their own artwork. See [Fontsource installation](https://fontsource.org/fonts/plus-jakarta-sans/install).
+
+![LeadFlow sharing artwork with a fictional lead challenge](frontend/public/leadflow-social.png)
 
 ### Authentication and account security
 
@@ -128,6 +150,8 @@ Dashboard follow-up metrics count leads using their next pending follow-up date.
 | Deployment | Vercel |
 
 ## Application Flow
+
+Visitors can open `/` to explore the public homepage and play the fictional lead challenge before creating an account. A signed-in user can also visit Home and return through the dashboard shortcut. Protected workspace routes continue to require a valid session.
 
 Email/password registration creates a pending account and directs the user to email verification. Opening the email link displays a verification page; clicking **Verify email** consumes the token. The user then signs in to enter the protected shared layout. Registration itself does not issue a JWT.
 
@@ -337,6 +361,10 @@ npm run lint
 npm run build
 ```
 
+For the v1.8.0 release candidate, local checks passed for homepage/game behaviour, feature tabs, logo navigation, protected navigation, the public missing-page screen, and keyboard/mobile behaviour. The user also confirmed the support disclosure, Gmail contact option, selectable address, and custom-font browser checks. Frontend lint completed without reported problems. Vite 8.3.0 built 1,966 modules in 3.30 seconds and emitted the Plus Jakarta Sans font assets. Its plugin-timing diagnostic did not prevent a successful build. Production verification for v1.8.0 is pending.
+
+The sharing artwork's PNG format and 1200 × 630 dimensions, metadata image paths, and static metadata structure were checked during preparation. Sharing services must fetch the production HTML and image after deployment; a local image preview does not establish that a social platform has refreshed its card.
+
 For v1.7.0, backend integration checks and frontend lint/build passed locally. Browser validation covered protected navigation, filters, personal-task creation/editing, completion outcomes and persistence, cancellation, discarded drafts, stale edits across tabs, and scheduling multiple lead follow-ups. Completing the earliest follow-up advanced the lead's next date and retained the activity history. Viewer scheduling controls were absent.
 
 Production checks for v1.7.0 passed on 14 September 2026: protected `/follow-ups` refresh and production API routing; personal-task editing, completion outcomes, persistence, and cancellation; multiple lead follow-ups, earliest-date advancement, and retained activity; stale edits across tabs; owner isolation and viewer controls; existing Dashboard, Plans, Profile, mobile navigation, and logout protection.
@@ -385,11 +413,15 @@ In the backend project's Environment Variables settings, enable **Enable access 
 
 The backend exports its Express app from `src/app.js`, a supported Vercel entry point; this release does not require a backend `vercel.json`. Keep the frontend's existing SPA rewrite so direct links to `/follow-ups`, lead details, `/verify-email`, and `/reset-password/:token` load React. See [Express on Vercel](https://vercel.com/docs/frameworks/backend/express).
 
-Merging the reviewed feature branch into the configured production branch, `main`, triggers production deployments through the existing Git integration. Confirm both projects use the intended commit and are Ready before testing. If a project skips the commit, create a deployment from that same Git reference. See [Vercel Git deployments](https://vercel.com/docs/git).
+Merging the reviewed feature branch into the configured production branch, `main`, triggers deployments through the existing Git integration. Confirm each changed project's production deployment is Ready on the intended commit before testing. See [Vercel Git deployments](https://vercel.com/docs/git).
 
-This workspace feature introduces no new environment variables. Any changes to existing environment variables apply only to new deployments. See [Vercel environment variables](https://vercel.com/docs/environment-variables).
+The v1.8.0 homepage release changes the frontend only. Confirm its project uses the `frontend` root, `npm run build`, and the `dist` output directory. A new backend deployment, environment-variable change, or database migration is not required for this release. The existing production backend remains in use. Any changes to existing environment variables apply only to new deployments. See [Vercel environment variables](https://vercel.com/docs/environment-variables).
 
-For subsequent releases, verify protected `/follow-ups` refresh, personal-task persistence and completion, cancellation, multiple scheduled lead follow-ups, earliest-date advancement, retained activity, and viewer/owner boundaries on the production URLs. Use test records under accounts you control. Confirm the browser calls the production `/api/tasks` endpoint, and check the existing Dashboard, Plans, Profile, and sign-in flows. Record the verification result in the release documentation before creating its tag. The v1.7.0 results are recorded above.
+For v1.8.0, include the frontend package manifest and lockfile changes from installing Fontsource in the reviewed commit. Verify the public homepage and game while logged out, logo links, the signed-in dashboard shortcut, direct refresh, mobile behaviour, and the missing-page screen on production. Confirm existing Dashboard, Plans, Profile, and Follow-ups navigation still works and protected routes redirect after logout. Check that the support choices use the confirmed public address, that the new font loads from the deployed assets, and that `/leadflow-social.png` returns the PNG with an image content type. Inspect the initial page source for the sharing metadata and check the public homepage preview in a sharing service. Record production results before finalizing the README and creating the tag.
+
+Sharing metadata lives in `frontend/index.html`, so it is present in the initial HTML. Its absolute public URLs use `https://leadflow-hazel-xi.vercel.app/`; update these and the sharing artwork if the public domain changes. These are static product-level defaults, not personalized previews of private records. The React missing-page screen uses the existing SPA fallback and does not establish an HTTP 404 response for unknown URLs.
+
+For future changes to tasks or backend access control, repeat the relevant production checks for persistence, completion/cancellation, earliest-date synchronization, retained activity, and viewer/owner boundaries using accounts and records you control. The completed v1.7.0 results are recorded above.
 
 Existing password accounts without recorded email verification must verify their address before signing in; account data is preserved. Do not mark all existing accounts verified as a migration shortcut. Password-reset links issued before the new email-binding checks need to be requested again. Preview testing should use a development database and matching preview frontend/API URLs.
 
@@ -426,8 +458,25 @@ Access based on actual team membership and sponsor relationships is planned. The
 - Password recovery clears pending email changes and verifies ownership through the recovery email
 - Resend and password-recovery requests use generic responses for unknown addresses
 - MongoDB-backed rate limits apply to authentication writes, with additional sign-in, email-request, and account-change limits
+- Production Vite source maps are explicitly disabled with `build.sourcemap: false`; delivered browser code remains inspectable
+- Public product metadata and demonstration artwork contain no private lead or account data
+
+Inspecting browser code does not grant permission to read or change records; those checks belong on the API. Repository visibility separately controls access to committed source files. Minification and disabled source maps are not substitutes for authorization or secret handling.
 
 ## Version History
+
+### v1.8.0 — Unreleased
+
+- Added a public homepage with the playable The Next Move lead challenge
+- Added interactive feature previews, FAQs, and session-aware account links
+- Linked the LeadFlow logos to Home across the workspace and authentication pages
+- Added a public missing-page screen and default page metadata
+- Prepared sharing artwork, Open Graph/X card metadata, and a public support link
+- Added Gmail/email-app contact choices and a selectable fallback address
+- Added shared Plus Jakarta Sans typography through Fontsource
+- Made the existing production source-map default explicit
+- Passed frontend lint/build and the local homepage, game, navigation, missing-page, support, and typography checkpoints
+- Pending: production deployment and verification, including sharing previews, then release tagging
 
 ### v1.7.0
 
@@ -496,6 +545,7 @@ Access based on actual team membership and sponsor relationships is planned. The
 
 ## Roadmap
 
+- Complete the v1.8.0 public-homepage rollout and production verification
 - Automated email reminders and in-app notifications
 - Program-specific ranks, memberships, sponsor trees, and scoped lead assignments
 - Account archival with preserved activity attribution and ownership reassignment
@@ -505,6 +555,10 @@ Access based on actual team membership and sponsor relationships is planned. The
 - Real-time updates and team/direct chat
 - Advanced analytics, broader activity views, and application preferences
 - Expanded automated integration coverage, API documentation, and CI/CD
+
+## Support
+
+Questions or problems with LeadFlow: [leadflow.support.help@gmail.com](mailto:leadflow.support.help@gmail.com).
 
 ## Author
 

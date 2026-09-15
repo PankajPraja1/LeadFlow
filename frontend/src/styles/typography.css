@@ -1,0 +1,20 @@
+:root {
+  --font-sans:
+    "Plus Jakarta Sans Variable",
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+
+  --default-font-family: var(--font-sans);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
