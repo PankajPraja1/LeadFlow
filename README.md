@@ -21,9 +21,9 @@ The application uses a React and Redux Toolkit frontend, an Express REST API, Mo
 
 ## Project Status
 
-**Latest tagged release: v1.7.0 — Follow-ups and personal tasks.**
+**Current version: v1.8.0 — Public homepage and interactive demo.**
 
-**Release candidate: v1.8.0 — Public homepage and interactive demo.** Local homepage, game, navigation, missing-page, support-contact, and custom-font checks have passed, along with frontend lint and build. Sharing artwork and product-sharing metadata are included. Production deployment and verification remain before finalizing the release and tagging v1.8.0.
+The public homepage is deployed on Vercel with the playable lead challenge, support contact choices, Plus Jakarta Sans typography, logo navigation, missing-page screen, and sharing metadata/artwork. Frontend lint/build and local browser checks passed. Production checks also passed for the homepage/game, font loading, Gmail support recipient, sign-in and Home/dashboard navigation, protected-page refresh and logout, mobile navigation, unknown-route refresh, sharing image, and page-source metadata.
 
 The Follow-ups workspace, personal-task actions, and scheduling from Lead Details are merged into `main` and deployed to both Vercel production projects. Backend integration checks, frontend lint/build, and local browser checks passed. Production deployment and browser verification were confirmed on 14 September 2026.
 
@@ -35,7 +35,7 @@ Shared-database follow-up initialization and its read-only audit passed, with no
 
 ## Features
 
-### Public homepage — v1.8.0, unreleased
+### Public homepage
 
 - Public `/` route for visitors and signed-in users
 - The Next Move: three fictional lead conversations with choices, feedback, a score, and replay
@@ -361,9 +361,11 @@ npm run lint
 npm run build
 ```
 
-For the v1.8.0 release candidate, local checks passed for homepage/game behaviour, feature tabs, logo navigation, protected navigation, the public missing-page screen, and keyboard/mobile behaviour. The user also confirmed the support disclosure, Gmail contact option, selectable address, and custom-font browser checks. Frontend lint completed without reported problems. Vite 8.3.0 built 1,966 modules in 3.30 seconds and emitted the Plus Jakarta Sans font assets. Its plugin-timing diagnostic did not prevent a successful build. Production verification for v1.8.0 is pending.
+For v1.8.0, local checks passed for homepage/game behaviour, feature tabs, logo navigation, protected navigation, the public missing-page screen, and keyboard/mobile behaviour. The support disclosure, Gmail contact option, selectable address, and custom-font browser checks also passed. Frontend lint completed without reported problems. Vite 8.3.0 built 1,966 modules in 3.30 seconds and emitted the Plus Jakarta Sans font assets. Its plugin-timing diagnostic did not prevent a successful build.
 
-The sharing artwork's PNG format and 1200 × 630 dimensions, metadata image paths, and static metadata structure were checked during preparation. Sharing services must fetch the production HTML and image after deployment; a local image preview does not establish that a social platform has refreshed its card.
+Production checks for v1.8.0 passed: the public homepage, challenge, and custom font while logged out; Gmail support with the correct recipient; sign-in and Home/dashboard navigation; workspace refresh and logout protection; mobile navigation and unknown-route refresh; and the public sharing image and initial HTML metadata.
+
+The sharing artwork's PNG format and 1200 × 630 dimensions, metadata image paths, and static metadata structure were checked during preparation. The image and metadata were also confirmed on production. Sharing services control the rendering and caching of their own link previews.
 
 For v1.7.0, backend integration checks and frontend lint/build passed locally. Browser validation covered protected navigation, filters, personal-task creation/editing, completion outcomes and persistence, cancellation, discarded drafts, stale edits across tabs, and scheduling multiple lead follow-ups. Completing the earliest follow-up advanced the lead's next date and retained the activity history. Viewer scheduling controls were absent.
 
@@ -417,7 +419,7 @@ Merging the reviewed feature branch into the configured production branch, `main
 
 The v1.8.0 homepage release changes the frontend only. Confirm its project uses the `frontend` root, `npm run build`, and the `dist` output directory. A new backend deployment, environment-variable change, or database migration is not required for this release. The existing production backend remains in use. Any changes to existing environment variables apply only to new deployments. See [Vercel environment variables](https://vercel.com/docs/environment-variables).
 
-For v1.8.0, include the frontend package manifest and lockfile changes from installing Fontsource in the reviewed commit. Verify the public homepage and game while logged out, logo links, the signed-in dashboard shortcut, direct refresh, mobile behaviour, and the missing-page screen on production. Confirm existing Dashboard, Plans, Profile, and Follow-ups navigation still works and protected routes redirect after logout. Check that the support choices use the confirmed public address, that the new font loads from the deployed assets, and that `/leadflow-social.png` returns the PNG with an image content type. Inspect the initial page source for the sharing metadata and check the public homepage preview in a sharing service. Record production results before finalizing the README and creating the tag.
+For future frontend releases, include package manifest and lockfile changes with the reviewed source. Verify affected public and protected routes, direct refresh, mobile layouts, and logout protection on production. When changing the homepage, also check the game, support choices, font assets, sharing image, and initial page-source metadata. The completed v1.8.0 production results are recorded above.
 
 Sharing metadata lives in `frontend/index.html`, so it is present in the initial HTML. Its absolute public URLs use `https://leadflow-hazel-xi.vercel.app/`; update these and the sharing artwork if the public domain changes. These are static product-level defaults, not personalized previews of private records. The React missing-page screen uses the existing SPA fallback and does not establish an HTTP 404 response for unknown URLs.
 
@@ -465,18 +467,18 @@ Inspecting browser code does not grant permission to read or change records; tho
 
 ## Version History
 
-### v1.8.0 — Unreleased
+### v1.8.0
 
 - Added a public homepage with the playable The Next Move lead challenge
 - Added interactive feature previews, FAQs, and session-aware account links
 - Linked the LeadFlow logos to Home across the workspace and authentication pages
 - Added a public missing-page screen and default page metadata
-- Prepared sharing artwork, Open Graph/X card metadata, and a public support link
+- Added sharing artwork, Open Graph/X card metadata, and a public support link
 - Added Gmail/email-app contact choices and a selectable fallback address
 - Added shared Plus Jakarta Sans typography through Fontsource
 - Made the existing production source-map default explicit
 - Passed frontend lint/build and the local homepage, game, navigation, missing-page, support, and typography checkpoints
-- Pending: production deployment and verification, including sharing previews, then release tagging
+- Completed Vercel production validation for the public experience, support contact, fonts, navigation, protected routes, sharing image, and static metadata
 
 ### v1.7.0
 
@@ -545,7 +547,6 @@ Inspecting browser code does not grant permission to read or change records; tho
 
 ## Roadmap
 
-- Complete the v1.8.0 public-homepage rollout and production verification
 - Automated email reminders and in-app notifications
 - Program-specific ranks, memberships, sponsor trees, and scoped lead assignments
 - Account archival with preserved activity attribution and ownership reassignment
