@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { LayoutDashboard, ListTodo, LogOut, Menu, Target, UserRound, X, } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { NavLink, Outlet, useLocation, useNavigate, } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate, } from "react-router-dom";
 
 import { logout } from "../../features/auth/authSlice";
 
@@ -142,18 +142,24 @@ function AppLayout() {
         <div className="min-h-screen bg-slate-100">
             {/* Desktop sidebar */}
             <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white lg:flex lg:flex-col">
-                <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-5">
-                    <img src="/leadflow-logo.svg" alt="LeadFlow logo" className="h-10 w-10" />
+                <div className="border-b border-slate-200 px-5 py-5">
+                    <Link to="/" aria-label="LeadFlow home"
+                        className=" inline-flex rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-700"
+                    >
+                        <div className="flex items-center gap-3 ">
+                            <img src="/leadflow-logo.svg" alt="LeadFlow logo" className="h-10 w-10" />
 
-                    <div>
-                        <p className="font-bold text-slate-900">
-                            LeadFlow
-                        </p>
+                            <div>
+                                <p className="font-bold text-slate-900">
+                                    LeadFlow
+                                </p>
 
-                        <p className="text-xs text-slate-500">
-                            CRM workspace
-                        </p>
-                    </div>
+                                <p className="text-xs text-slate-500">
+                                    CRM workspace
+                                </p>
+                            </div>
+                        </div>
+                    </Link>
                 </div>
 
                 <div className="flex-1 py-5">
@@ -195,7 +201,12 @@ function AppLayout() {
             {/* Mobile header */}
             <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
                 <div className="flex items-center gap-3">
-                    <img src="/leadflow-logo.svg" alt="LeadFlow logo" className="h-9 w-9" />
+                    <Link to="/" aria-label="LeadFlow home"
+                        className=" inline-flex rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-700"
+                    >
+
+                        <img src="/leadflow-logo.svg" alt="LeadFlow logo" className="h-9 w-9" />
+                    </Link>
 
                     <div>
                         <p className="font-bold text-slate-900">
@@ -251,24 +262,18 @@ function AppLayout() {
                 <div className="flex h-full flex-col">
                     <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
                         <div className="flex items-center gap-3">
-                            <img
-                                src="/leadflow-logo.svg"
-                                alt=""
-                                className="h-9 w-9"
-                            />
-
-                            <h2
-                                id="mobile-navigation-title"
-                                className="font-bold text-slate-900"
+                            <Link to="/" aria-label="LeadFlow home"
+                                className=" inline-flex rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-700"
                             >
+                                <img src="/leadflow-logo.svg" alt="" className="h-9 w-9" />
+                            </Link>
+
+                            <h2 id="mobile-navigation-title" className="font-bold text-slate-900" >
                                 LeadFlow navigation
                             </h2>
                         </div>
 
-                        <button
-                            ref={closeButtonRef}
-                            type="button"
-                            onClick={() => setIsMobileMenuOpen(false)}
+                        <button ref={closeButtonRef} type="button" onClick={() => setIsMobileMenuOpen(false)}
                             className="cursor-pointer rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
                             aria-label="Close navigation menu"
                         >
@@ -277,9 +282,7 @@ function AppLayout() {
                     </div>
 
                     <div className="min-h-0 flex-1 overflow-y-auto py-5">
-                        <NavigationLinks
-                            onNavigate={() => setIsMobileMenuOpen(false)}
-                        />
+                        <NavigationLinks onNavigate={() => setIsMobileMenuOpen(false)} />
                     </div>
 
                     <div className="shrink-0 border-t border-slate-200 p-4">

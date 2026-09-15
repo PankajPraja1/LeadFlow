@@ -7,6 +7,8 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { store } from "./app/store";
 import App from './App'
 import './index.css'
+import "@fontsource-variable/plus-jakarta-sans/wght.css";
+import "./styles/typography.css";
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

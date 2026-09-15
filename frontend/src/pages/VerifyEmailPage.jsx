@@ -155,11 +155,11 @@ function VerificationContent({
                 aria-busy={isBusy}
                 className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
             >
-                <img
-                    src="/leadflow-logo.svg"
-                    alt="LeadFlow logo"
-                    className="mb-5 h-12 w-12"
-                />
+                <Link to="/" aria-label="LeadFlow home"
+                    className=" inline-flex rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-700"
+                >
+                    <img src="/leadflow-logo.svg" alt="LeadFlow logo" className="mb-5 h-12 w-12" />
+                </Link>
 
                 <h1 className="text-3xl font-bold text-slate-900">
                     {isVerified ? "Email verified" : "Verify your email"}
