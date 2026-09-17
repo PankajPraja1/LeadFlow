@@ -42,6 +42,16 @@ const taskSchema = new mongoose.Schema(
             type: Date,
             default: null,
         },
+        reminderRevision: {
+            type: Number,
+            required: true,
+            default: 0,
+            min: 0,
+            validate: {
+                validator: Number.isSafeInteger,
+                message: "Reminder revision must be a safe integer",
+            },
+        },
         status: {
             type: String,
             enum: ["pending", "completed", "cancelled"],
@@ -76,6 +86,7 @@ const taskSchema = new mongoose.Schema(
         toJSON: {
             transform: (_document, result) => {
                 delete result.legacyImported;
+                delete result.reminderRevision;
                 return result;
             },
         },
@@ -116,6 +127,23 @@ taskSchema.pre("validate", function () {
     if (this.legacyImported && this.kind !== "follow_up") {
         this.invalidate("legacyImported", "Only lead follow-ups can be imported");
     }
+});
+
+taskSchema.pre("save", function () {
+    if (this.isNew || (!this.isModified("dueAt") && !this.isModified("status"))) {
+        return;
+    }
+
+    const revision = this.reminderRevision ?? 0;
+
+    if (!Number.isSafeInteger(revision) || revision < 0 || revision >= Number.MAX_SAFE_INTEGER) {
+        throw Object.assign(
+            new Error("Unable to advance this task's reminder revision"),
+            { statusCode: 409 }
+        );
+    }
+
+    this.reminderRevision = revision + 1;
 });
 
 taskSchema.index({ assignedTo: 1, status: 1, dueAt: 1 });

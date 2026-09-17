@@ -351,4 +351,5 @@ module.exports = {
     getTask,
     createTask,
     mutateTask,
+    readableTasks,
 };
