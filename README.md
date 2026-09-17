@@ -4,7 +4,7 @@
 
   <h1>LeadFlow</h1>
 
-  <p>A deployed, full-stack CRM for secure lead management, reusable marketing plans, follow-ups, pipeline analytics, and activity tracking.</p>
+  <p>A full-stack CRM for secure lead management, reusable marketing plans, follow-ups, personal tasks, reminders, and activity tracking.</p>
 
 </div>
 
@@ -22,6 +22,10 @@ The application uses a React and Redux Toolkit frontend, an Express REST API, Mo
 ## Project Status
 
 **Current version: v1.8.0 — Public homepage and interactive demo.**
+
+**Next release: v1.9.0 — Personal reminders and notifications. Local checks passed; production deployment and scheduler verification pending.**
+
+The notification inbox, preferences, and daily-email implementation passed local checks on 17 September 2026, including a real email to a controlled account and suppression of a repeat attempt on the same UTC date. Automatic production delivery remains disabled for the initial deployment checks; v1.9.0 has not been tagged.
 
 The public homepage is deployed on Vercel with the playable lead challenge, support contact choices, Plus Jakarta Sans typography, logo navigation, missing-page screen, and sharing metadata/artwork. Frontend lint/build and local browser checks passed. Production checks also passed for the homepage/game, font loading, Gmail support recipient, sign-in and Home/dashboard navigation, protected-page refresh and logout, mobile navigation, unknown-route refresh, sharing image, and page-source metadata.
 
@@ -103,7 +107,29 @@ The frontend imports `@fontsource-variable/plus-jakarta-sans/wght.css` and `src/
 - Give viewers read access within their scope, with no lead, note, or task mutation controls
 - Reject stale task changes using version checks and refresh the task before another edit
 
-Task types are fixed when created. Completing a follow-up preserves it as history; scheduling the next conversation creates a separate task. Team task assignment and scheduled reminder delivery are planned features.
+Task types are fixed when created. Completing a follow-up preserves it as history; scheduling the next conversation creates a separate task. Team task assignment remains planned. Personal reminders and daily summaries are included in the v1.9.0 release candidate below.
+
+### Personal reminders and notifications — v1.9.0 release candidate
+
+- Shared notification bell with unread count, All/Unread views, pagination, and read/unread actions
+- Links from reminders to the Follow-ups workspace and accessible Lead Details
+- Keyboard dismissal and focus return to the notification bell
+- Bounded reminder synchronization while the workspace is visible and online, roughly once per minute
+- Reminder times of 0, 15, 30, or 60 minutes before a task's due time
+- Protected `/settings/notifications` page accessible from navigation and the bell
+- Independent in-app and daily-email preferences, with email disabled by default
+- Saved email time zone and an explicit Use device time zone action that still requires Save
+- Versioned preference updates and reload-based recovery from conflicting or uncertain saves
+- Daily email summaries of pending dated tasks due today and overdue from earlier local days
+- Current owner and linked-lead access checks before reminder counts and email content
+- Database delivery claims and records to suppress repeated daily email attempts
+- Local preview and explicitly requested single-account email checks
+
+In-app reminders are generated when a signed-in workspace synchronizes; they are not browser push notifications. Turning them off pauses new generation while preserving existing inbox records and read state. Completing, cancelling, rescheduling, deleting, or losing access to a task removes its old occurrence from the active inbox. Read/unread state does not complete a task or control daily email delivery. Older pending tasks can generate reminders on the next synchronization.
+
+Daily summaries use the current verified account email and saved time zone. They include up to ten task rows per category, full counts, and links to the workspace and notification settings. Completed, cancelled, undated, inaccessible, and other users' tasks are excluded. Empty summaries are skipped. The email time zone controls day boundaries and displayed dates; the Follow-ups workspace continues to display device-local dates.
+
+Email delivery uses one global daily schedule. It is independent of the in-app reminder lead time and does not require an open browser. A unique recipient/UTC-date record prevents a second attempt after sending starts, even if the account email or time zone changes. SMTP acceptance does not guarantee inbox delivery. An interrupted or uncertain send is retained for investigation and is not automatically retried; this avoids blind duplicates but can result in a missed summary.
 
 ### Marketing-plan management
 
@@ -130,10 +156,10 @@ Dashboard follow-up metrics count leads using their next pending follow-up date.
 ### User experience
 
 - Responsive React and Tailwind CSS interface
-- Shared protected layout for Dashboard and Leads, Follow-ups & Tasks, Marketing Plans, and Profile
+- Shared protected layout for Dashboard and Leads, Follow-ups & Tasks, Marketing Plans, Profile, and Notification settings
 - Responsive desktop navigation and a mobile navigation drawer
 - Keyboard focus handling and focus restoration for the mobile drawer
-- Consistent page headings and shared profile/logout controls
+- Consistent page headings, workspace toolbar, notification bell, and shared profile/logout controls
 - Redux Toolkit state management
 - Loading, empty, validation, success, and controlled error states
 - Refresh-safe React Router routes on Vercel
@@ -148,6 +174,7 @@ Dashboard follow-up metrics count leads using their next pending follow-up date.
 | Authentication | JSON Web Token, bcryptjs, Google Identity Services |
 | API | RESTful API |
 | Deployment | Vercel |
+| Reminders | In-app synchronization, Nodemailer email digests, Vercel Cron Jobs |
 
 ## Application Flow
 
@@ -234,6 +261,25 @@ GET /api/tasks?status=completed&search=webinar
 
 List responses contain `tasks` and `pagination`; single-task and write responses contain `task`, alongside `success`.
 
+### Notifications and scheduler
+
+Notification routes require an active, verified authenticated account. All roles, including viewers, can manage their own notification preferences and read state. This does not grant permission to edit tasks or another user's data.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/notifications/preferences` | Load the current user's saved preferences and version |
+| PATCH | `/api/notifications/preferences` | Save selected preference fields with the current version |
+| POST | `/api/notifications/sync` | Generate a bounded batch of eligible in-app reminders |
+| GET | `/api/notifications` | List current accessible reminder occurrences and unread count |
+| PATCH | `/api/notifications/:id/read` | Set `isRead` to true or false for an accessible owned reminder |
+| GET | `/api/cron/daily-digest` | Run the daily email job; requires the server-only scheduler secret |
+
+Preference PATCH requests contain `version` and only the fields being changed: `inAppEnabled`, `dailyEmailEnabled`, `reminderMinutes`, and/or `timeZone`. Conflicts return HTTP `409`; reload before applying another update. New preferences default to in-app enabled, email disabled, 15 minutes, and UTC.
+
+Inbox queries accept `page`, `limit` (maximum 50), and `unread=true` for unread-only results. The response includes `notifications`, `unreadCount`, and `pagination`. Sync accepts an empty body and reports `inAppEnabled`, `processed`, `created`, and `hasMore`. Notifications retain their stored deduplication/read state even when their task occurrence is no longer shown in the active inbox.
+
+The cron route uses `Authorization: Bearer <CRON_SECRET>`, not a user's JWT. It accepts GET only, rejects query/body controls, and returns non-sensitive run counts. `DAILY_DIGEST_ENABLED` must be exactly `true`, and non-production Vercel deployments skip delivery. Authentication and disabled-feature checks run before digest database access.
+
 ### Marketing plans
 
 | Method | Endpoint | Access | Purpose |
@@ -272,7 +318,7 @@ Note mutations also require an Admin/Leader/Member role and the existing lead/no
 - npm
 - A MongoDB Atlas cluster or another MongoDB replica set/sharded deployment that supports transactions
 - Google OAuth web client
-- A Gmail sender with a Google App Password for verification and recovery email delivery
+- A Gmail sender with a Google App Password for verification, recovery, and opted-in daily summaries
 
 ### Installation
 
@@ -299,9 +345,13 @@ CLIENT_URL=http://localhost:5173
 GOOGLE_CLIENT_ID=your_google_web_client_id
 EMAIL_USER=your_support_account@gmail.com
 EMAIL_APP_PASSWORD=your_google_app_password
+CRON_SECRET=replace_with_a_random_64_character_hex_secret
+DAILY_DIGEST_ENABLED=false
 ```
 
 The follow-up and lead-write services require MongoDB transactions; a standalone local MongoDB server is not sufficient. Use a separate development database for new installations and experiments. The existing project's shared-database initialization is described below.
+
+Keep automatic digest delivery disabled locally when sharing a database with production. `CRON_SECRET` must be 32–256 non-whitespace characters; use a randomly generated value. Commit only placeholders in `backend/.env.example`. A manual one-account digest check can send explicitly while the automatic feature flag remains false.
 
 ### Frontend environment
 
@@ -354,12 +404,35 @@ node test/followUpMigration.integration.cjs
 
 These four scripts use the configured cluster with separate, randomly named temporary databases and clean up their own test collections. The database credentials must permit those test databases and the topology must support transactions. They cover rollback, concurrent changes, single legacy import, lead-date synchronization, ownership and viewer rules, version conflicts, lead deletion, and migration behavior.
 
+The notification and digest checks run from `backend`:
+
+```bash
+node test/notificationPreferences.integration.cjs
+node test/notificationInbox.integration.cjs
+node test/dailyDigest.test.cjs
+node test/dailyDigest.integration.cjs
+```
+
+The notification integration suites and digest integration suite use separate temporary databases and guarded test-collection cleanup. The digest integration suite injects fake email; it never calls the actual sender. The digest logic suite uses no database or email. Coverage includes ownership, linked-lead access, read-state behavior, concurrent claims, time-zone day boundaries, opt-out checks, uncertain delivery outcomes, and single-account isolation.
+
 From `frontend`:
 
 ```bash
+node test/notifications.test.mjs
+node test/notificationPreferences.test.mjs
 npm run lint
 npm run build
 ```
+
+The frontend notification scripts use mocked HTTP and cover session changes, cancellation, polling, preference validation, partial saves, and conflict recovery. The v1.9.0 local checkpoint, including the controlled real-email flow, passed on 17 September 2026. Production notification and scheduler validation is still pending.
+
+To preview one owned, verified, opted-in account from `backend` without sending:
+
+```bash
+node scripts/checkDailyDigest.cjs --email YOUR_ACCOUNT_EMAIL --database leadflow
+```
+
+After reviewing the account, task counts, and `canAttemptToday`, add `--send` to request one real email through the normal delivery records. The script verifies the connected database name; it does not change the URI's target database. It requires local execution and `DAILY_DIGEST_ENABLED=false`. A local send against the shared database counts as that account's attempt for the UTC date, including later production runs. Keep delivery records intact when checking duplicate suppression or investigating uncertainty.
 
 For v1.8.0, local checks passed for homepage/game behaviour, feature tabs, logo navigation, protected navigation, the public missing-page screen, and keyboard/mobile behaviour. The support disclosure, Gmail contact option, selectable address, and custom-font browser checks also passed. Frontend lint completed without reported problems. Vite 8.3.0 built 1,966 modules in 3.30 seconds and emitted the Plus Jakarta Sans font assets. Its plugin-timing diagnostic did not prevent a successful build.
 
@@ -409,15 +482,39 @@ The existing setup uses two projects, with `frontend` and `backend` as their res
 | Project | Production configuration |
 | --- | --- |
 | Frontend | `VITE_API_URL=https://leadflow-api-liard.vercel.app/api` and the existing `VITE_GOOGLE_CLIENT_ID` |
-| Backend | `CLIENT_URL=https://leadflow-hazel-xi.vercel.app`, plus `MONGODB_URI`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `EMAIL_USER`, and `EMAIL_APP_PASSWORD` |
+| Backend | `CLIENT_URL=https://leadflow-hazel-xi.vercel.app`, existing database/auth/mail variables, a Production-only `CRON_SECRET`, and `DAILY_DIGEST_ENABLED=false` for initial verification |
 
-In the backend project's Environment Variables settings, enable **Enable access to System Environment Variables**. This exposes `VERCEL=1`, which the limiter uses to select Vercel's `x-vercel-forwarded-for` header. Local execution uses the socket address. Keep `VERCEL` out of the local development `.env`. See [Vercel system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
+In the backend project's Environment Variables settings, enable **Enable access to System Environment Variables**. The limiter uses `VERCEL=1` to select Vercel's `x-vercel-forwarded-for` header, and the digest route uses `VERCEL_ENV` to skip non-production deployments. Local rate limits use the socket address. Keep these Vercel system flags out of the local development `.env`. See [Vercel system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
 
-The backend exports its Express app from `src/app.js`, a supported Vercel entry point; this release does not require a backend `vercel.json`. Keep the frontend's existing SPA rewrite so direct links to `/follow-ups`, lead details, `/verify-email`, and `/reset-password/:token` load React. See [Express on Vercel](https://vercel.com/docs/frameworks/backend/express).
+The backend exports its Express app from `src/app.js`, a supported Vercel entry point. Mount `dailyDigestRoutes` at `/api/cron` before the global database-connection middleware. The v1.9.0 candidate adds a backend `vercel.json` cron entry; preserve any other existing backend configuration. Keep the frontend's SPA rewrite so direct links to protected and authentication pages load React. See [Express on Vercel](https://vercel.com/docs/frameworks/backend/express).
+
+Use this cron entry in `backend/vercel.json`:
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/daily-digest",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
+```
+
+The schedule is daily at 03:00 UTC. Hobby starts the invocation somewhere within that hour, corresponding to 08:30–09:29 IST; it does not promise an exact send time. This is one global schedule, not each user's local morning. See [Vercel Hobby cron limits](https://vercel.com/docs/cron-jobs/usage-and-pricing).
+
+In the backend project's Settings → Functions, enable Fluid Compute and use a 300-second default maximum duration. Check that existing function overrides do not lower it. Deploy for settings changes to take effect. See [Fluid Compute](https://vercel.com/docs/fluid-compute) and [function duration configuration](https://vercel.com/docs/functions/configuring-functions/duration).
+
+Vercel attaches the Production `CRON_SECRET` as a bearer authorization header for scheduled calls. Set the feature flag to false for the first deployment; verify route authentication, the registered schedule, and the production UI before enabling it. Then change only Production `DAILY_DIGEST_ENABLED` to true and redeploy the backend. Keep Preview and Development disabled. Environment changes require a new deployment. See [securing cron jobs](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs) and [environment variables](https://vercel.com/docs/environment-variables).
+
+Each invocation considers at most 50 eligible recipients, uses two workers, and stops starting sends after a two-minute budget or UTC-date change. It awaits in-flight work. HTTP `503`, `hasMore=true`, failures, or unresolved delivery counts require review. Vercel does not automatically retry failed cron invocations, and delivery can be missed or repeated. The endpoint can continue unprocessed recipients on a deliberate same-day invocation, but records already marked sending/sent/uncertain are not resent. Do not delete records or force a resend after an unconfirmed outcome. See [cron operation and error handling](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
+
+Before tagging v1.9.0, verify production bell/read-state behavior, saved email preferences and zone, account isolation, and a successful authorized production digest run. Confirm links use the production frontend, then observe a scheduled invocation with no errors or remaining work. A zero-send run can be valid if there are no eligible tasks or the shared database already records that UTC day's attempts. Log counts distinguish those cases from processing failures. Complete the README release status only after these checks pass.
 
 Merging the reviewed feature branch into the configured production branch, `main`, triggers deployments through the existing Git integration. Confirm each changed project's production deployment is Ready on the intended commit before testing. See [Vercel Git deployments](https://vercel.com/docs/git).
 
-The v1.8.0 homepage release changes the frontend only. Confirm its project uses the `frontend` root, `npm run build`, and the `dist` output directory. A new backend deployment, environment-variable change, or database migration is not required for this release. The existing production backend remains in use. Any changes to existing environment variables apply only to new deployments. See [Vercel environment variables](https://vercel.com/docs/environment-variables).
+The v1.9.0 candidate changes both projects. Confirm the frontend uses the `frontend` root, `npm run build`, and the `dist` output directory, and the API project uses the `backend` root. Deploy both projects for the release. The completed follow-up migration is not part of this deployment. Existing delivered v1.8.0 homepage behavior must continue to work.
 
 For future frontend releases, include package manifest and lockfile changes with the reviewed source. Verify affected public and protected routes, direct refresh, mobile layouts, and logout protection on production. When changing the homepage, also check the game, support choices, font assets, sharing image, and initial page-source metadata. The completed v1.8.0 production results are recorded above.
 
@@ -440,16 +537,24 @@ New registrations receive the `member` role. System roles are assigned by the ba
 
 Task ownership restrictions apply to admins and leaders too; broad lead access does not grant access to another user's personal tasks or task records. The server rechecks the current lead scope for linked tasks before returning records or counts and before accepting writes.
 
+Notifications and daily summaries follow that same task scope. Viewers may change their own preferences and notification read state while retaining read-only task access. Reading another user's inbox or editing another user's preferences is not exposed through these routes.
+
 Access based on actual team membership and sponsor relationships is planned. The current broad lead permission does not represent an implemented upline/downline hierarchy. The viewer checks described here cover leads, notes, and tasks; they do not claim a complete application-wide viewer audit.
 
 ## Security
 
-- Protected endpoints require a valid, current JWT and verified email ownership
+- Protected account and workspace endpoints require a valid, current JWT and verified email ownership
 - Google ID tokens are verified against the configured OAuth Client ID
 - Authenticated users must still exist and remain active
 - Lead, plan, note, and task access is enforced server-side
 - Task ownership is enforced before list counts and pagination; linked tasks also require current lead access
 - Task edits, completion, and cancellation require the current document version
+- Notification counts and email summaries recheck task ownership and current linked-lead access
+- Preferences use version checks; stale or unconfirmed saves require an explicit reload
+- Daily email requires explicit opt-in and an active, verified account
+- Cron authorization uses a server-only secret with timing-safe comparison and no-store responses
+- Per-recipient UTC-date delivery records and claim tokens prevent blind retries and stale claim holders from sending
+- Email content escapes names/titles and omits lead contact details and task notes
 - Related follow-up tasks, lead dates, and activities are written in MongoDB transactions
 - MongoDB IDs are validated before database operations
 - MongoDB, JWT, and email credentials remain backend-only
@@ -466,6 +571,18 @@ Access based on actual team membership and sponsor relationships is planned. The
 Inspecting browser code does not grant permission to read or change records; those checks belong on the API. Repository visibility separately controls access to committed source files. Minification and disabled source maps are not substitutes for authorization or secret handling.
 
 ## Version History
+
+### v1.9.0 — release candidate, not yet tagged
+
+- Added in-app reminder generation, notification inbox, unread counts, and read/unread actions
+- Added the shared notification bell and workspace toolbar
+- Added notification preferences with separate in-app/email controls and saved email time zone
+- Added partial versioned saves, conflict recovery, and session-aware frontend state
+- Added opted-in daily task summaries and a Hobby-compatible daily cron configuration
+- Added delivery records, concurrent claim handling, bounded batches, and conservative handling of uncertain SMTP outcomes
+- Added notification/digest tests and the controlled single-account email preview/send script
+- Passed local checks and the single-account real-email/duplicate-suppression checkpoint
+- Production deployment and scheduled delivery verification remain pending
 
 ### v1.8.0
 
@@ -547,7 +664,9 @@ Inspecting browser code does not grant permission to read or change records; tho
 
 ## Roadmap
 
-- Automated email reminders and in-app notifications
+- Complete v1.9.0 production rollout and verification of personal reminders and daily summaries
+- Shared Settings area that reuses the existing notification and account-security pages
+- More flexible reminder schedules and durable queued delivery as requirements grow
 - Program-specific ranks, memberships, sponsor trees, and scoped lead assignments
 - Account archival with preserved activity attribution and ownership reassignment
 - Conversion and onboarding plans with individual progress tracking

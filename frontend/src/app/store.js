@@ -5,6 +5,7 @@ import crmReducer from "../features/crm/crmSlice";
 import leadDetailsReducer from "../features/leads/leadDetailsSlice";
 import planReducer from "../features/plans/planSlice";
 import taskReducer, { resetTasks } from "../features/tasks/taskSlice";
+import notificationReducer, { resetNotifications, } from "../features/notifications/notificationSlice";
 
 const appReducer = combineReducers({
   auth: authReducer,
@@ -12,6 +13,7 @@ const appReducer = combineReducers({
   leadDetails: leadDetailsReducer,
   plans: planReducer,
   tasks: taskReducer,
+  notifications: notificationReducer,
 });
 
 const userId = (user) => user?.id ?? user?._id ?? null;
@@ -31,7 +33,13 @@ export const rootReducer = (state, action) => {
 
   // Compare the auth reducer's accepted result, so an obsolete failed
   // session check cannot clear the current user's task state.
-  return taskAccessChanged ? { ...nextState, tasks: taskReducer(undefined, resetTasks()) } : nextState;
+  return taskAccessChanged
+    ? {
+      ...nextState,
+      tasks: taskReducer(undefined, resetTasks()),
+      notifications: notificationReducer(undefined, resetNotifications()),
+    }
+    : nextState;
 };
 
 export const store = configureStore({ reducer: rootReducer });

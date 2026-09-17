@@ -12,6 +12,10 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const planRoutes = require("./routes/planRoutes");
 // Import task routes
 const taskRoutes = require("./routes/taskRoutes");
+// Import notification routes
+const notificationRoutes = require("./routes/notificationRoutes");
+// Import daily digest routes
+const dailyDigestRoutes = require("./routes/dailyDigestRoutes");
 
 const app = express();
 
@@ -28,14 +32,14 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.use("/api/cron", dailyDigestRoutes);
+
 app.use(async (req, res, next) => {
   try {
     await connectDB();
     next();
   } catch (error) {
-    console.error(
-      `Database connection error: ${error.message}`
-    );
+    console.error(`Database connection error: ${error.message}`);
 
     res.status(503).json({
       success: false,
@@ -54,5 +58,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/plans", planRoutes);
 // Use task routes
 app.use("/api/tasks", taskRoutes);
+// Use notification routes
+app.use("/api/notifications", notificationRoutes);
 
 module.exports = app;

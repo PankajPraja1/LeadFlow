@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { LayoutDashboard, ListTodo, LogOut, Menu, Target, UserRound, X, } from "lucide-react";
+import { LayoutDashboard, ListTodo, LogOut, Menu, Target, UserRound, X, Settings, } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, NavLink, Outlet, useLocation, useNavigate, } from "react-router-dom";
+import NotificationBell from "../notifications/NotificationBell";
+import NotificationSync from "../notifications/NotificationSync";
+import WorkspaceHeader from "./WorkspaceHeader";
 
 import { logout } from "../../features/auth/authSlice";
 
@@ -25,6 +28,11 @@ const navigationItems = [
         label: "Profile & Security",
         path: "/profile",
         icon: UserRound,
+    },
+    {
+        label: "Notification settings",
+        path: "/settings/notifications",
+        icon: Settings,
     },
 ]; // Navigationitem array for the sidebar and mobile drawer
 
@@ -62,6 +70,7 @@ function AppLayout() {
             "/follow-ups": "Follow-ups & Tasks",
             "/plans": "Marketing Plans",
             "/profile": "Profile & Security",
+            "/settings/notifications": "Notification settings",
         }[pathname] || "Workspace";
 
     const { user } = useSelector((state) => state.auth);
@@ -140,6 +149,7 @@ function AppLayout() {
 
     return (
         <div className="min-h-screen bg-slate-100">
+            <NotificationSync />
             {/* Desktop sidebar */}
             <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white lg:flex lg:flex-col">
                 <div className="border-b border-slate-200 px-5 py-5">
@@ -219,18 +229,22 @@ function AppLayout() {
                     </div>
                 </div>
 
-                <button
-                    ref={menuButtonRef}
-                    type="button"
-                    onClick={() => setIsMobileMenuOpen(true)}
-                    className="cursor-pointer rounded-lg border border-slate-300 p-2 text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
-                    aria-label="Open navigation menu"
-                    aria-haspopup="dialog"
-                    aria-controls="mobile-navigation"
-                    aria-expanded={isMobileMenuOpen}
-                >
-                    <Menu size={21} />
-                </button>
+                <div className="flex items-center gap-3">
+                    <NotificationBell />
+
+                    <button
+                        ref={menuButtonRef}
+                        type="button"
+                        onClick={() => setIsMobileMenuOpen(true)}
+                        className="cursor-pointer rounded-lg border border-slate-300 p-2 text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+                        aria-label="Open navigation menu"
+                        aria-haspopup="dialog"
+                        aria-controls="mobile-navigation"
+                        aria-expanded={isMobileMenuOpen}
+                    >
+                        <Menu size={21} />
+                    </button>
+                </div>
             </header>
 
             {/* Mobile drawer */}
@@ -325,6 +339,11 @@ function AppLayout() {
 
             {/* Protected page content */}
             <div className="lg:pl-64">
+                <WorkspaceHeader
+                    pageTitle={pageTitle}
+                    user={user}
+                />
+
                 <Outlet />
             </div>
         </div>
