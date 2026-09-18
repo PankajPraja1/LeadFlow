@@ -21,11 +21,11 @@ The application uses a React and Redux Toolkit frontend, an Express REST API, Mo
 
 ## Project Status
 
-**Current version: v1.8.0 — Public homepage and interactive demo.**
+**Current version: v1.9.0 — Personal reminders and notifications.**
 
-**Next release: v1.9.0 — Personal reminders and notifications. Local checks passed; production deployment and scheduler verification pending.**
+The notification inbox, preferences, and daily-email implementation are merged into `main` and deployed to Vercel. Local checks passed on 17 September 2026, including a real email to a controlled account and suppression of a repeat attempt on the same UTC date. Production UI, authentication, preferences, and authorized digest checks passed. Automatic scheduled email delivery and the remaining production checks were confirmed on 18 September 2026.
 
-The notification inbox, preferences, and daily-email implementation passed local checks on 17 September 2026, including a real email to a controlled account and suppression of a repeat attempt on the same UTC date. Automatic production delivery remains disabled for the initial deployment checks; v1.9.0 has not been tagged.
+Daily summaries are enabled in Production and remain opt-in for each user. Local, Preview, and Development automatic sending remain disabled.
 
 The public homepage is deployed on Vercel with the playable lead challenge, support contact choices, Plus Jakarta Sans typography, logo navigation, missing-page screen, and sharing metadata/artwork. Frontend lint/build and local browser checks passed. Production checks also passed for the homepage/game, font loading, Gmail support recipient, sign-in and Home/dashboard navigation, protected-page refresh and logout, mobile navigation, unknown-route refresh, sharing image, and page-source metadata.
 
@@ -33,7 +33,7 @@ The Follow-ups workspace, personal-task actions, and scheduling from Lead Detail
 
 Authentication, account security, lead management, pipeline analytics, lead-detail pages, interaction notes, activity history, and marketing-plan management remain part of the deployed application.
 
-The shared application layout includes Follow-ups & Tasks alongside Dashboard, Marketing Plans, and Profile, with responsive navigation and session recovery.
+The shared application layout includes Dashboard, Follow-ups & Tasks, Marketing Plans, Profile, and Notification settings, with responsive navigation, a notification bell, and session recovery.
 
 Shared-database follow-up initialization and its read-only audit passed, with no unresolved leads or blockers at that checkpoint. The roadmap below lists subsequent work.
 
@@ -107,9 +107,9 @@ The frontend imports `@fontsource-variable/plus-jakarta-sans/wght.css` and `src/
 - Give viewers read access within their scope, with no lead, note, or task mutation controls
 - Reject stale task changes using version checks and refresh the task before another edit
 
-Task types are fixed when created. Completing a follow-up preserves it as history; scheduling the next conversation creates a separate task. Team task assignment remains planned. Personal reminders and daily summaries are included in the v1.9.0 release candidate below.
+Task types are fixed when created. Completing a follow-up preserves it as history; scheduling the next conversation creates a separate task. Team task assignment remains planned. Personal reminders and daily summaries are described below.
 
-### Personal reminders and notifications — v1.9.0 release candidate
+### Personal reminders and notifications
 
 - Shared notification bell with unread count, All/Unread views, pagination, and read/unread actions
 - Links from reminders to the Follow-ups workspace and accessible Lead Details
@@ -121,6 +121,7 @@ Task types are fixed when created. Completing a follow-up preserves it as histor
 - Saved email time zone and an explicit Use device time zone action that still requires Save
 - Versioned preference updates and reload-based recovery from conflicting or uncertain saves
 - Daily email summaries of pending dated tasks due today and overdue from earlier local days
+- Production daily scheduling through a Vercel Cron Job, independent of browser activity
 - Current owner and linked-lead access checks before reminder counts and email content
 - Database delivery claims and records to suppress repeated daily email attempts
 - Local preview and explicitly requested single-account email checks
@@ -424,7 +425,9 @@ npm run lint
 npm run build
 ```
 
-The frontend notification scripts use mocked HTTP and cover session changes, cancellation, polling, preference validation, partial saves, and conflict recovery. The v1.9.0 local checkpoint, including the controlled real-email flow, passed on 17 September 2026. Production notification and scheduler validation is still pending.
+The frontend notification scripts use mocked HTTP and cover session changes, cancellation, polling, preference validation, partial saves, and conflict recovery. The v1.9.0 local checkpoint, including the controlled real-email flow, passed on 17 September 2026.
+
+Production validation for v1.9.0 was completed on 18 September 2026. Checks covered the bell and read state, saved notification/email preferences and time zone, account isolation, existing navigation and authentication, rejection of unauthenticated cron requests, and an authorized enabled digest run with no failures or unfinished work. The scheduled daily invocation and actual email receipt were confirmed, including the task details and production workspace/settings links. A same-day production run correctly sent no second email after the earlier local test used the account's UTC-date delivery record.
 
 To preview one owned, verified, opted-in account from `backend` without sending:
 
@@ -482,11 +485,11 @@ The existing setup uses two projects, with `frontend` and `backend` as their res
 | Project | Production configuration |
 | --- | --- |
 | Frontend | `VITE_API_URL=https://leadflow-api-liard.vercel.app/api` and the existing `VITE_GOOGLE_CLIENT_ID` |
-| Backend | `CLIENT_URL=https://leadflow-hazel-xi.vercel.app`, existing database/auth/mail variables, a Production-only `CRON_SECRET`, and `DAILY_DIGEST_ENABLED=false` for initial verification |
+| Backend | `CLIENT_URL=https://leadflow-hazel-xi.vercel.app`, existing database/auth/mail variables, a Production-only `CRON_SECRET`, and `DAILY_DIGEST_ENABLED=true` |
 
 In the backend project's Environment Variables settings, enable **Enable access to System Environment Variables**. The limiter uses `VERCEL=1` to select Vercel's `x-vercel-forwarded-for` header, and the digest route uses `VERCEL_ENV` to skip non-production deployments. Local rate limits use the socket address. Keep these Vercel system flags out of the local development `.env`. See [Vercel system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
 
-The backend exports its Express app from `src/app.js`, a supported Vercel entry point. Mount `dailyDigestRoutes` at `/api/cron` before the global database-connection middleware. The v1.9.0 candidate adds a backend `vercel.json` cron entry; preserve any other existing backend configuration. Keep the frontend's SPA rewrite so direct links to protected and authentication pages load React. See [Express on Vercel](https://vercel.com/docs/frameworks/backend/express).
+The backend exports its Express app from `src/app.js`, a supported Vercel entry point. Mount `dailyDigestRoutes` at `/api/cron` before the global database-connection middleware. The backend `vercel.json` includes the daily digest cron entry; preserve any other existing backend configuration. Keep the frontend's SPA rewrite so direct links to protected and authentication pages load React. See [Express on Vercel](https://vercel.com/docs/frameworks/backend/express).
 
 Use this cron entry in `backend/vercel.json`:
 
@@ -506,15 +509,15 @@ The schedule is daily at 03:00 UTC. Hobby starts the invocation somewhere within
 
 In the backend project's Settings → Functions, enable Fluid Compute and use a 300-second default maximum duration. Check that existing function overrides do not lower it. Deploy for settings changes to take effect. See [Fluid Compute](https://vercel.com/docs/fluid-compute) and [function duration configuration](https://vercel.com/docs/functions/configuring-functions/duration).
 
-Vercel attaches the Production `CRON_SECRET` as a bearer authorization header for scheduled calls. Set the feature flag to false for the first deployment; verify route authentication, the registered schedule, and the production UI before enabling it. Then change only Production `DAILY_DIGEST_ENABLED` to true and redeploy the backend. Keep Preview and Development disabled. Environment changes require a new deployment. See [securing cron jobs](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs) and [environment variables](https://vercel.com/docs/environment-variables).
+Vercel attaches the Production `CRON_SECRET` as a bearer authorization header for scheduled calls. The current Production deployment uses `DAILY_DIGEST_ENABLED=true`; local, Preview, and Development automatic sending remain disabled. For a new installation, start with the flag false, verify route authentication, the registered schedule, and the production UI, then enable it only in Production and redeploy the backend. Environment changes require a new deployment. See [securing cron jobs](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs) and [environment variables](https://vercel.com/docs/environment-variables).
 
 Each invocation considers at most 50 eligible recipients, uses two workers, and stops starting sends after a two-minute budget or UTC-date change. It awaits in-flight work. HTTP `503`, `hasMore=true`, failures, or unresolved delivery counts require review. Vercel does not automatically retry failed cron invocations, and delivery can be missed or repeated. The endpoint can continue unprocessed recipients on a deliberate same-day invocation, but records already marked sending/sent/uncertain are not resent. Do not delete records or force a resend after an unconfirmed outcome. See [cron operation and error handling](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
 
-Before tagging v1.9.0, verify production bell/read-state behavior, saved email preferences and zone, account isolation, and a successful authorized production digest run. Confirm links use the production frontend, then observe a scheduled invocation with no errors or remaining work. A zero-send run can be valid if there are no eligible tasks or the shared database already records that UTC day's attempts. Log counts distinguish those cases from processing failures. Complete the README release status only after these checks pass.
+The v1.9.0 production checks, including scheduled email delivery, passed on 18 September 2026. For subsequent notification changes, verify bell/read-state behavior, saved preferences and zone, account isolation, production email links, and both authorized and scheduled digest runs. A zero-send run can be valid if there are no eligible tasks or the shared database already records that UTC day's attempts. Log counts distinguish those cases from processing failures.
 
 Merging the reviewed feature branch into the configured production branch, `main`, triggers deployments through the existing Git integration. Confirm each changed project's production deployment is Ready on the intended commit before testing. See [Vercel Git deployments](https://vercel.com/docs/git).
 
-The v1.9.0 candidate changes both projects. Confirm the frontend uses the `frontend` root, `npm run build`, and the `dist` output directory, and the API project uses the `backend` root. Deploy both projects for the release. The completed follow-up migration is not part of this deployment. Existing delivered v1.8.0 homepage behavior must continue to work.
+The v1.9.0 implementation is deployed to both projects. The frontend uses the `frontend` root, `npm run build`, and the `dist` output directory; the API project uses the `backend` root. Future changes affecting both projects require both production deployments to be checked. The completed follow-up migration does not need to be rerun. Existing homepage behavior remains part of production verification.
 
 For future frontend releases, include package manifest and lockfile changes with the reviewed source. Verify affected public and protected routes, direct refresh, mobile layouts, and logout protection on production. When changing the homepage, also check the game, support choices, font assets, sharing image, and initial page-source metadata. The completed v1.8.0 production results are recorded above.
 
@@ -572,7 +575,7 @@ Inspecting browser code does not grant permission to read or change records; tho
 
 ## Version History
 
-### v1.9.0 — release candidate, not yet tagged
+### v1.9.0 — Personal reminders and notifications
 
 - Added in-app reminder generation, notification inbox, unread counts, and read/unread actions
 - Added the shared notification bell and workspace toolbar
@@ -582,7 +585,7 @@ Inspecting browser code does not grant permission to read or change records; tho
 - Added delivery records, concurrent claim handling, bounded batches, and conservative handling of uncertain SMTP outcomes
 - Added notification/digest tests and the controlled single-account email preview/send script
 - Passed local checks and the single-account real-email/duplicate-suppression checkpoint
-- Production deployment and scheduled delivery verification remain pending
+- Completed Vercel production validation and confirmed automatic scheduled email delivery on 18 September 2026
 
 ### v1.8.0
 
@@ -664,7 +667,6 @@ Inspecting browser code does not grant permission to read or change records; tho
 
 ## Roadmap
 
-- Complete v1.9.0 production rollout and verification of personal reminders and daily summaries
 - Shared Settings area that reuses the existing notification and account-security pages
 - More flexible reminder schedules and durable queued delivery as requirements grow
 - Program-specific ranks, memberships, sponsor trees, and scoped lead assignments
